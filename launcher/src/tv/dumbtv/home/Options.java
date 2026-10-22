@@ -3,6 +3,7 @@ package tv.dumbtv.home;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.media.tv.TvInputManager;
 import android.os.Bundle;
@@ -36,37 +37,50 @@ public final class Options extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFocusable(false);
         scroll.setVerticalScrollBarEnabled(false);
-        scroll.setBackgroundColor(0xFF0C0C0E);
+        GradientDrawable page = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0xFF0B0C10, 0xFF050608});
+        scroll.setBackground(page);
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(56), dp(40), dp(56), dp(40));
+        list.setPadding(dp(72), dp(48), dp(72), dp(72));
         scroll.addView(list);
 
-        TextView title = Ui.text(this, 30, Ui.TEXT, Ui.LIGHT);
+        TextView title = Ui.text(this, 34, Ui.TEXT, Ui.LIGHT);
         title.setText("Options");
-        title.setPadding(dp(16), 0, 0, dp(20));
+        title.setLetterSpacing(-0.01f);
+        title.setPadding(dp(18), 0, 0, dp(10));
         list.addView(title);
 
+        TextView intro = Ui.text(this, 15, Ui.FAINT, Ui.REGULAR);
+        intro.setText("Changes save as you make them.");
+        intro.setPadding(dp(18), 0, 0, dp(12));
+        list.addView(intro);
+
+        header(list, "Appearance");
         for (Config.Choice c : Config.CHOICES) list.addView(choice(c));
-        list.addView(action("Next wallpaper", () -> {
-            cfg.nextWallpaper();
+        list.addView(action("Next background", () -> {
+            cfg.nextBackground();
             refresh();
         }));
-        list.addView(gap());
-        list.addView(action("Apps on home screen", () -> pick(Catalog.APPS)));
-        list.addView(action("Inputs on home screen", () -> pick(Catalog.INPUTS)));
+
+        header(list, "Home screen");
+        list.addView(action("Apps shown", () -> pick(Catalog.APPS)));
+        list.addView(action("Inputs shown", () -> pick(Catalog.INPUTS)));
         list.addView(action("Reset order, names and hidden tiles", this::reset));
+
+        header(list, "System");
         list.addView(action("Open Amazon's home screen", () -> {
             Guard.amazon(this);
             finish();
         }));
 
-        TextView about = Ui.text(this, 13, Ui.FAINT, Ui.MEDIUM);
-        about.setLineSpacing(0, 1.4f);
-        about.setPadding(dp(16), dp(28), 0, 0);
-        about.setText("Settings file: " + cfg.dir + "/" + Config.FILE
-                + "\nWallpaper: put wallpaper.jpg in that folder, then pick Background › Image file"
-                + "\nSeveral wallpapers: put them in " + Config.WALLPAPERS + "/ and pick a rotation"
+        TextView about = Ui.text(this, 13, Ui.FAINT, Ui.REGULAR);
+        about.setLineSpacing(0, 1.45f);
+        about.setPadding(dp(18), dp(30), 0, 0);
+        about.setText("Settings: " + cfg.dir + "/" + Config.FILE
+                + "\nBuilt-in backgrounds ship with the app. For your own, put images in "
+                + Config.WALLPAPERS + "/ beside that file and pick Background › Image file. "
+                + "On Fire OS 6/7 you can adb push them; Fire OS 8 blocks adb from that folder."
                 + "\nNo internet permission. No tracking, no ads, no accounts.");
         list.addView(about);
 
@@ -88,7 +102,7 @@ public final class Options extends Activity {
     private View choice(Config.Choice c) {
         LinearLayout row = row();
         TextView name = label(c.title);
-        TextView value = Ui.text(this, 16, Ui.MUTED, Ui.MEDIUM);
+        TextView value = Ui.text(this, 17, Ui.MUTED, Ui.MEDIUM);
         value.setGravity(Gravity.END);
         row.addView(name, new LinearLayout.LayoutParams(0, WRAP, 1f));
         row.addView(value, new LinearLayout.LayoutParams(WRAP, WRAP));
@@ -112,9 +126,10 @@ public final class Options extends Activity {
                 value.setText(focused ? "‹  " + text + "  ›" : text);
             }
             value.setTextColor(focused ? Ui.TEXT : Ui.MUTED);
-            boolean off = (c == Config.DIM || c == Config.ROTATE)
-                    && !"image".equals(cfg.get(Config.BACKGROUND));
-            row.setAlpha(off ? 0.4f : 1f);
+            boolean image = "image".equals(cfg.get(Config.BACKGROUND));
+            boolean scenic = cfg.scene() != null || image;
+            boolean off = (c == Config.DIM && !scenic) || (c == Config.ROTATE && !image);
+            row.setAlpha(off ? 0.35f : 1f);
         };
         row.setOnFocusChangeListener((v, has) -> show.run());
         refreshers.add(show);
@@ -133,7 +148,7 @@ public final class Options extends Activity {
     private View action(String text, Runnable run) {
         LinearLayout row = row();
         row.addView(label(text), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView chevron = Ui.text(this, 16, Ui.MUTED, Ui.MEDIUM);
+        TextView chevron = Ui.text(this, 18, Ui.MUTED, Ui.REGULAR);
         chevron.setText("›");
         row.addView(chevron);
         row.setOnClickListener(v -> run.run());
@@ -146,31 +161,35 @@ public final class Options extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setFocusable(true);
         row.setClickable(true);
-        row.setPadding(dp(16), dp(14), dp(16), dp(14));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(600), WRAP);
+        row.setPadding(dp(18), dp(15), dp(18), dp(15));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(760), WRAP);
         lp.bottomMargin = dp(4);
         row.setLayoutParams(lp);
         return row;
     }
 
     private void style(View row) {
+        int accent = cfg.accent();
         StateListDrawable bg = new StateListDrawable();
         bg.addState(new int[] {android.R.attr.state_focused},
-                Ui.round((cfg.accent() & 0x00FFFFFF) | 0x33000000, dp(10)));
-        bg.addState(new int[0], Ui.round(0x00000000, dp(10)));
+                Ui.round((accent & 0x00FFFFFF) | 0x2E000000, dp(12), (accent & 0x00FFFFFF) | 0x77000000,
+                        dp(1)));
+        bg.addState(new int[0], Ui.round(0x00000000, dp(12)));
         row.setBackground(bg);
     }
 
     private TextView label(String text) {
-        TextView v = Ui.text(this, 16, Ui.TEXT, Ui.MEDIUM);
+        TextView v = Ui.text(this, 17, Ui.TEXT, Ui.MEDIUM);
         v.setText(text);
         return v;
     }
 
-    private View gap() {
-        View v = new View(this);
-        v.setLayoutParams(new LinearLayout.LayoutParams(1, dp(18)));
-        return v;
+    private void header(LinearLayout list, String text) {
+        TextView v = Ui.text(this, 13, Ui.FAINT, Ui.MEDIUM);
+        v.setText(text.toUpperCase(java.util.Locale.ROOT));
+        v.setLetterSpacing(0.18f);
+        v.setPadding(dp(18), dp(28), 0, dp(8));
+        list.addView(v);
     }
 
     private void pick(String kind) {

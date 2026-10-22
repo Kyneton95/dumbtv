@@ -1,10 +1,12 @@
 package tv.dumbtv.home;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.PixelFormat;
@@ -33,12 +35,18 @@ public final class Guard extends AccessibilityService {
     private static final long REPEAT_MS = 1000;
 
     private static volatile boolean paused;
+    private static volatile int taskId;
     private static Guard running;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable uncover = this::uncover;
     private View cover;
     private long lastLaunch;
+
+    /** The Home activity's task, so the takeover does not have to search for it. */
+    static void here(int id) {
+        taskId = id;
+    }
 
     /** Lets Amazon's home stay on screen until the user leaves it. */
     static void pause() {
@@ -79,6 +87,40 @@ public final class Guard extends AccessibilityService {
         } catch (ActivityNotFoundException e) {
             paused = false;
         }
+    }
+
+    /**
+     * Android 11 refuses the alarm-fired activity start from the background, but moving our
+     * existing task to the front is allowed. The alarm above is only for a cold start, when
+     * there is no Home task yet.
+     */
+    private boolean moveFront() {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (manager == null) return false;
+        int known = taskId;
+        if (known > 0) {
+            try {
+                manager.moveTaskToFront(known, 0);
+                return true;
+            } catch (Throwable ignored) {
+                // the task may have been recreated; fall through
+            }
+        }
+        try {
+            for (ActivityManager.AppTask task : manager.getAppTasks()) {
+                ActivityManager.RecentTaskInfo info = task.getTaskInfo();
+                ComponentName base = info == null || info.baseIntent == null
+                        ? null : info.baseIntent.getComponent();
+                if (base != null && getPackageName().equals(base.getPackageName())
+                        && Home.class.getName().equals(base.getClassName())) {
+                    task.moveToFront();
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through to the alarm
+        }
+        return false;
     }
 
     @Override
@@ -122,7 +164,7 @@ public final class Guard extends AccessibilityService {
         if (now - lastLaunch < REPEAT_MS) return;
         lastLaunch = now;
         cover();
-        home(this);
+        if (!moveFront()) home(this);
     }
 
     /** The overlay window exists from service start; a GONE root keeps its surface hidden. */

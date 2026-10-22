@@ -9,8 +9,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -36,6 +38,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -58,11 +62,14 @@ public final class Home extends Activity {
     private boolean resumed, landed;
     private FrameLayout root;
     private ImageView wall;
-    private View shade;
+    private Shade shade;
     private TextView clock, date;
     private Row apps, inputs;
     private Tile moving;
     private String wallKey;
+    private Bitmap currentWall;
+
+    private static final int EDGE = 64;
 
     private final BroadcastReceiver packages = new BroadcastReceiver() {
         @Override
@@ -110,11 +117,11 @@ public final class Home extends Activity {
 
         Row(String kind, String name, LinearLayout parent) {
             this.kind = kind;
-            int edge = dp(56), bleed = dp(14);
-            title = Ui.text(Home.this, 12, Ui.FAINT, Ui.MEDIUM);
+            int edge = dp(EDGE), bleed = dp(14);
+            title = Ui.text(Home.this, 15, 0xA6FFFFFF, Ui.MEDIUM);
             title.setText(name.toUpperCase(Locale.ROOT));
-            title.setLetterSpacing(0.14f);
-            title.setPadding(edge, dp(20), edge, dp(2));
+            title.setLetterSpacing(0.16f);
+            title.setPadding(edge, dp(24), edge, dp(2));
             strip = new LinearLayout(Home.this);
             strip.setClipChildren(false);
             strip.setClipToPadding(false);
@@ -195,6 +202,7 @@ public final class Home extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        Guard.here(getTaskId());
         resumed = true;
         Guard.arrived(this);
         cfg.refresh();
@@ -361,7 +369,7 @@ public final class Home extends Activity {
         wall = new ImageView(this);
         wall.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(wall, new FrameLayout.LayoutParams(MATCH, MATCH));
-        shade = new View(this);
+        shade = new Shade(this);
         root.addView(shade, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         ScrollView scroll = new ScrollView(this) {
@@ -415,17 +423,19 @@ public final class Home extends Activity {
         column.setOrientation(LinearLayout.VERTICAL);
         column.setClipChildren(false);
         column.setClipToPadding(false);
-        column.setPadding(0, dp(40), 0, dp(32));
+        column.setPadding(0, dp(48), 0, dp(32));
         scroll.addView(column, new FrameLayout.LayoutParams(MATCH, WRAP));
 
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.TOP);
-        head.setPadding(dp(56), 0, dp(56), dp(12));
+        head.setPadding(dp(EDGE), 0, dp(EDGE), dp(14));
         LinearLayout when = new LinearLayout(this);
         when.setOrientation(LinearLayout.VERTICAL);
-        clock = Ui.text(this, 52, Ui.TEXT, Ui.LIGHT);
-        date = Ui.text(this, 15, Ui.MUTED, Ui.MEDIUM);
-        date.setPadding(dp(2), dp(8), 0, 0);
+        clock = Ui.text(this, 64, Ui.TEXT, Ui.LIGHT);
+        clock.setLetterSpacing(-0.02f);
+        date = Ui.text(this, 17, Ui.MUTED, Ui.REGULAR);
+        date.setLetterSpacing(0.01f);
+        date.setPadding(dp(3), dp(10), 0, 0);
         when.addView(clock);
         when.addView(date);
         head.addView(when, new LinearLayout.LayoutParams(0, WRAP, 1f));
@@ -435,6 +445,7 @@ public final class Home extends Activity {
 
         apps = new Row(Catalog.APPS, "Apps", column);
         inputs = new Row(Catalog.INPUTS, "Inputs", column);
+        inputs.title.setPadding(dp(EDGE), dp(30), dp(EDGE), dp(2));
         return root;
     }
 
@@ -458,18 +469,19 @@ public final class Home extends Activity {
     }
 
     private TextView chip(String label, View.OnClickListener click) {
-        TextView v = Ui.text(this, 14, Ui.TEXT, Ui.MEDIUM);
+        TextView v = Ui.text(this, 15, Ui.TEXT, Ui.MEDIUM);
         v.setText(label);
+        v.setLetterSpacing(0.01f);
         v.setGravity(Gravity.CENTER);
-        v.setPadding(dp(18), dp(9), dp(18), dp(9));
+        v.setPadding(dp(20), dp(10), dp(20), dp(10));
         v.setFocusable(true);
         v.setClickable(true);
         v.setOnClickListener(click);
         v.setOnFocusChangeListener((view, has) ->
-                view.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(110).start());
+                view.animate().scaleX(has ? 1.04f : 1f).scaleY(has ? 1.04f : 1f).setDuration(120).start());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
         lp.leftMargin = dp(10);
-        lp.topMargin = dp(6);
+        lp.topMargin = dp(4);
         v.setLayoutParams(lp);
         chips.add(v);
         return v;
@@ -478,7 +490,7 @@ public final class Home extends Activity {
     private void apply() {
         applied = cfg.version();
         int accent = cfg.accent();
-        for (TextView c : chips) Ui.focusStyle(c, accent, 0x14FFFFFF, dp(18));
+        for (TextView c : chips) Ui.focusStyle(c, accent, dp(20));
         render(apps);
         render(inputs);
         background();
@@ -563,11 +575,11 @@ public final class Home extends Activity {
     private int[] cardSize() {
         switch (cfg.get(Config.TILES)) {
             case "small":
-                return new int[] {dp(144), dp(81)};
+                return new int[] {dp(160), dp(90)};
             case "large":
-                return new int[] {dp(224), dp(126)};
+                return new int[] {dp(240), dp(135)};
             default:
-                return new int[] {dp(180), dp(101)};
+                return new int[] {dp(200), dp(113)};
         }
     }
 
@@ -600,25 +612,57 @@ public final class Home extends Activity {
     }
 
     private void background() {
-        boolean image = "image".equals(cfg.get(Config.BACKGROUND));
-        File file = image ? cfg.wallpaper() : null;
+        String scene = cfg.scene();
+        File file = "image".equals(cfg.get(Config.BACKGROUND)) ? cfg.wallpaper() : null;
         root.setBackgroundColor(cfg.background());
         int dim = Integer.parseInt(cfg.get(Config.DIM));
-        shade.setBackgroundColor(file == null ? Color.TRANSPARENT : Color.argb(dim * 255 / 100, 0, 0, 0));
-        String key = file == null ? null : file.getPath() + ":" + file.lastModified();
+        shade.set(dim, scene != null || file != null);
+        String key = scene != null ? "scene:" + scene
+                : file == null ? null : file.getPath() + ":" + file.lastModified();
         if (key == null ? wallKey == null : key.equals(wallKey)) return;
         wallKey = key;
-        if (file == null) {
+        if (key == null) {
             wall.setImageDrawable(null);
+            currentWall = null;
             return;
         }
         io.execute(() -> {
-            Bitmap b = decode(file, getResources().getDisplayMetrics().widthPixels,
-                    getResources().getDisplayMetrics().heightPixels);
+            Bitmap b = scene != null ? decodeAsset(scene)
+                    : decode(file, getResources().getDisplayMetrics().widthPixels,
+                            getResources().getDisplayMetrics().heightPixels);
             ui.post(() -> {
-                if (key.equals(wallKey)) wall.setImageBitmap(b);
+                if (key.equals(wallKey) && !isDestroyed()) showWall(b);
             });
         });
+    }
+
+    /** Crossfades to a new background; the first one appears without a fade. */
+    private void showWall(Bitmap b) {
+        if (b == null) {
+            wall.setImageDrawable(null);
+            currentWall = null;
+            return;
+        }
+        Bitmap old = currentWall;
+        currentWall = b;
+        if (old == null) {
+            wall.setImageDrawable(new BitmapDrawable(getResources(), b));
+            return;
+        }
+        TransitionDrawable fade = new TransitionDrawable(new Drawable[] {
+                new BitmapDrawable(getResources(), old),
+                new BitmapDrawable(getResources(), b)});
+        fade.setCrossFadeEnabled(true);
+        wall.setImageDrawable(fade);
+        fade.startTransition(420);
+    }
+
+    private Bitmap decodeAsset(String name) {
+        try (InputStream in = getAssets().open("wallpapers/" + name + ".webp")) {
+            return BitmapFactory.decodeStream(in);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private static Bitmap decode(File f, int w, int h) {

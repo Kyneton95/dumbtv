@@ -215,13 +215,12 @@ Advanced settings > Configure filter update, add
 the rest, reboot. The routing tweaks (`detectDNS = false`, `routeIPs`) cannot be set this
 way. `verify.sh` skips the list count there and relies on the blocked-host lookups.
 
-**HOME does not move to dumbtv home yet.** Android 11 blocks the Guard's alarm-fired
-launch as a background activity start (logcat: `Background activity start ...
-callingUidHasAnyVisibleWindow: false`). The service is bound, so `verify.sh` reports it
-as bound; press HOME to see the truth. Android's documented way past this is the
-"display over other apps" permission (`SYSTEM_ALERT_WINDOW`), which the launcher does
-not declare. Adding it is open: it would end the launcher's no-permissions rule, and it
-needs testing on a Fire OS 8 device.
+**HOME now moves to dumbtv home on Fire OS 8.** Android 11 blocks the Guard's
+alarm-fired launch as a background activity start (logcat: `Background activity start ...
+callingUidHasAnyVisibleWindow: false`). Launcher 1.3 instead calls `moveTaskToFront` on
+its existing Home task, which Android allows and which needs no extra permission; the
+alarm remains only the cold-start fallback. Tested on this device: HOME returns in about
+a second. `verify.sh` still only proves the service is bound, so press HOME to confirm.
 
 **`com.amazon.dummy.settings` and `com.android.traceur` come back enabled after a
 reboot.** Re-run `debloat.sh` after a reboot to switch them off again.

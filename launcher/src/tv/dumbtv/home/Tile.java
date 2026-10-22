@@ -15,20 +15,23 @@ import android.view.View;
 
 /** A card drawn in one pass: banner, or icon plus name, or an input name; focus ring on top. */
 final class Tile extends View {
-    private static final float FOCUS_SCALE = 1.08f;
+    private static final float FOCUS_SCALE = 1.05f;
 
     final Item item;
     final String kind;
     private final CharSequence title;
     private final int cardW, cardH, labelH;
     private final boolean labelAlways, labelOnFocus;
-    private final float radius, stroke;
+    private final float radius, stroke, halo;
     private final RectF card = new RectF();
     private final Path clip = new Path();
     private final Path arrow = new Path();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint hairline = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dotHalo = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint inner = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint under = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private boolean moving;
@@ -42,25 +45,36 @@ final class Tile extends View {
         this.cardW = cardW;
         this.cardH = cardH;
         boolean app = Catalog.APPS.equals(kind);
-        labelH = app ? Ui.dp(c, 26) : 0;
+        labelH = app ? Ui.dp(c, 30) : 0;
         labelAlways = "always".equals(labels);
         labelOnFocus = "focus".equals(labels);
-        radius = Ui.dp(c, 10);
-        stroke = Ui.dp(c, 2.5f);
+        radius = Ui.dp(c, 14);
+        stroke = Ui.dp(c, 3);
+        halo = Ui.dp(c, 4);
 
-        fill.setColor(app ? Ui.SURFACE : 0xFF17181B);
+        fill.setColor(app ? Ui.SURFACE : 0xFF111317);
         ring.setStyle(Paint.Style.STROKE);
         ring.setStrokeWidth(stroke);
         ring.setColor(accent);
+        ring.setStrokeJoin(Paint.Join.ROUND);
+        shadow.setStyle(Paint.Style.STROKE);
+        shadow.setStrokeWidth(halo);
+        shadow.setColor(0x88000000);
+        hairline.setStyle(Paint.Style.STROKE);
+        hairline.setStrokeWidth(Math.max(1, Ui.dp(c, 1)));
+        hairline.setColor(0x24FFFFFF);
         dot.setColor(0xFF34C759);
+        dotHalo.setColor(0xCC000000);
+
         inner.setColor(Ui.TEXT);
         inner.setTypeface(Ui.MEDIUM);
         inner.setTextAlign(Paint.Align.CENTER);
-        inner.setTextSize(Ui.dp(c, app ? 14 : 17));
-        under.setColor(Ui.TEXT);
+        inner.setTextSize(Ui.dp(c, app ? 15 : 18));
+        under.setColor(0xF2FFFFFF);
         under.setTypeface(Ui.MEDIUM);
         under.setTextAlign(Paint.Align.CENTER);
-        under.setTextSize(Ui.dp(c, 13));
+        under.setTextSize(Ui.dp(c, 16));
+        under.setShadowLayer(Ui.dp(c, 3), 0, Ui.dp(c, 1), 0xB3000000);
 
         setFocusable(true);
         setClickable(true);
@@ -91,7 +105,7 @@ final class Tile extends View {
     protected void onFocusChanged(boolean focused, int direction, Rect previous) {
         super.onFocusChanged(focused, direction, previous);
         float s = focused ? FOCUS_SCALE : 1f;
-        animate().scaleX(s).scaleY(s).setDuration(110).start();
+        animate().scaleX(s).scaleY(s).setDuration(140).start();
         invalidate();
     }
 
@@ -114,13 +128,17 @@ final class Tile extends View {
             drawLine(canvas, inner, cardW / 2f, cardH / 2f - (inner.ascent() + inner.descent()) / 2);
         }
         if (moving) canvas.drawColor(0x99000000);
+        canvas.drawRoundRect(card, radius, radius, hairline);
         canvas.restore();
 
         if (item.state == TvInputManager.INPUT_STATE_CONNECTED) {
             float r = Ui.dp(getContext(), 3.5f);
-            canvas.drawCircle(cardW - r * 3, r * 3, r, dot);
+            canvas.drawCircle(cardW - r * 3.2f, r * 3.2f, r + Ui.dp(getContext(), 1.5f), dotHalo);
+            canvas.drawCircle(cardW - r * 3.2f, r * 3.2f, r, dot);
         }
         if (isFocused() || moving) {
+            float pad = halo / 2;
+            canvas.drawRoundRect(pad, pad, cardW - pad, cardH - pad, radius - pad, radius - pad, shadow);
             float half = stroke / 2;
             ring.setPathEffect(moving ? new DashPathEffect(new float[] {stroke * 3, stroke * 2}, 0) : null);
             canvas.drawRoundRect(half, half, cardW - half, cardH - half, radius - half, radius - half, ring);
@@ -128,7 +146,7 @@ final class Tile extends View {
         if (moving) drawArrows(canvas);
         boolean label = banner != null && (labelAlways || labelOnFocus && isFocused());
         if (labelH > 0 && label) {
-            drawLine(canvas, under, cardW / 2f, cardH + labelH - Ui.dp(getContext(), 6));
+            drawLine(canvas, under, cardW / 2f, cardH + labelH - Ui.dp(getContext(), 7));
         }
     }
 

@@ -9,7 +9,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # shellcheck disable=SC1091
 source version.env
-APK_URL=https://github.com/humblemuzzu/dumbtv/releases/download/launcher-v$VERSION/dumbtv-home.apk
+APK_URL=https://github.com/Kyneton95/dumbtv/releases/download/launcher-v$VERSION/dumbtv-home.apk
 
 PKG=tv.dumbtv.home
 GUARD=$PKG/$PKG.Guard
@@ -114,7 +114,8 @@ fi
 
 out=$(adb_ install -r "$APK" 2>&1 | tail -1 || true)
 case $out in
-  *Success*) ;;
+  # Newer adb ends with "Install command complete in ...", older with "Success".
+  *Success*|*"Install command complete"*) ;;
   *INSTALL_FAILED_UPDATE_INCOMPATIBLE*)
     echo "error: the installed dumbtv home was signed with a different key (release vs your own build)." >&2
     echo "  back up your settings:  adb pull /sdcard/Android/data/$PKG/files/home.conf" >&2

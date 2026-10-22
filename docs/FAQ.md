@@ -81,8 +81,8 @@ the `min_futurity=0` alarm setting was reset — re-run `scripts/launcher.sh`. S
 **Why your own launcher instead of Projectivy?**
 Projectivy is closed source and requests the advertising ID, ad attribution,
 install referrer, internet access and package install/delete. A home screen needs
-none of that. dumbtv home (`launcher/`) is 45 KB, has no internet permission, and
-uses about half the RAM. Check it yourself: `aapt2 dump permissions dumbtv-home.apk`
+none of that. dumbtv home (`launcher/`) is about 480 KB including three
+wallpapers, has no internet permission, and uses about half the RAM. Check it yourself: `aapt2 dump permissions dumbtv-home.apk`
 prints three, usage access, boot and task order, each with `maxSdkVersion='27'`,
 so only Fire OS 6 grants them and Fire OS 7/8 see none.
 

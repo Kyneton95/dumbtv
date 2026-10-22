@@ -2,14 +2,26 @@
 
 A home screen for Fire TV that does one job: show your apps and your HDMI inputs.
 
-- **45 KB APK.** Plain Java and Android views: no AndroidX, Kotlin, Compose, Play
-  Services or other libraries.
+- **About 480 KB APK, three background scenes included.** Plain Java and Android views:
+  no AndroidX, Kotlin, Compose, Play Services or other libraries.
 - **No network.** It has no `INTERNET` permission, so Android blocks it from
   opening any network connection. The APK declares usage access, reorder-tasks
   and boot-completed with `android:maxSdkVersion="27"`: Fire OS 6 requests them
   for the Keeper described below, Fire OS 7/8 does not. Check it yourself:
   `aapt2 dump permissions build/dumbtv-home.apk`.
 - **No ads, no "recommended" rows, no account, no analytics, no update checks.**
+- **Three built-in ambient backgrounds** — aurora, dusk dunes, moonlit coast —
+  shipped in the APK. Auto follows the time of day; nothing is downloaded.
+
+## The look
+
+Dark, calm and made for ten feet rather than a desk. A full-bleed scene sits
+behind the tiles, with a soft scrim only where text or labels land. One near-white
+type scale, a light 64 sp clock, and a focus state that changes scale, outline and
+shadow together. The art keeps its bright focal point on the right, so the clock
+and app row always sit on quiet pixels, and everything stays inside a 6.7% margin
+for overscan. Ridgelines are drawn at 4× and box-filtered, then given a sub-pixel
+soften, so they do not stair-step when the 1080p UI is scaled to a 4K panel.
 
 ## Install (no Java, no SDK)
 
@@ -41,7 +53,7 @@ install/delete. Measured on an Onida Fire TV Edition (Fire OS 7.7, 1.4 GB RAM):
 
 | | dumbtv home | Projectivy 4.72 |
 |---|---|---|
-| APK | 45 KB | several MB |
+| APK | ~480 KB, incl. wallpapers | several MB |
 | Permissions requested | 0 (Fire OS 7/8); usage access (Fire OS 6) | 20+, incl. advertising ID |
 | RAM, home on screen | 57–72 MB PSS | 135 MB PSS |
 | RAM, while an app plays | ~37 MB PSS | — |
@@ -62,7 +74,8 @@ sdkmanager "platforms;android-28" "build-tools;34.0.0"
 
 On Linux set `JAVA_HOME` and `ANDROID_HOME`; the defaults are Homebrew's paths.
 
-`build.sh` creates `launcher/release.keystore` the first time it runs. Your build
+`build.sh` packs `assets/` with `aapt2 -A` and creates `launcher/release.keystore`
+the first time it runs. Your build
 is signed with your key, the release with the project's, and Android will not
 update one with the other: `install.sh` says so and tells you to
 `adb uninstall tv.dumbtv.home` first (back up `home.conf` before, see below).
@@ -79,11 +92,11 @@ update one with the other: `install.sh` says so and tells you to
 | Hold HOME | Fire OS quick menu (Amazon's, unchanged) |
 
 **Options** cycles each setting with ◀ ▶ or OK: accent color, tile size, app names
-(on focus / always / never), clock format, inputs row, background (black, graphite,
-midnight, or an image), image dim and wallpaper rotation, and **Next wallpaper**
-steps to the next image. It also lists which apps and inputs appear on
-the home screen. Apps without a TV banner, like the Appstore or Downloads, start
-hidden; tick them there to add them.
+(on focus / always / never), clock format, inputs row, background (auto by time,
+aurora, dunes, coast, black, graphite, midnight, or an image), background dim and
+image rotation, and **Next background** steps through the scenes. It also lists
+which apps and inputs appear on the home screen. Apps without a TV banner, like the
+Appstore or Downloads, start hidden; tick them there to add them.
 
 ## The settings file
 
@@ -104,11 +117,11 @@ labels=focus
 clock=auto
 # on off
 inputs=on
-# black graphite midnight image
-background=black
-# 0 20 40 60 80, image background only
-dim=40
-# off visit hourly daily daytime (visit = every return to the home screen)
+# auto aurora dunes coast black graphite midnight image
+background=auto
+# 0 20 40 60 80, any scene or image
+dim=0
+# off visit hourly daily daytime (image files only; visit = every return home)
 rotate=off
 apps.order=com.amazon.firetv.youtube,org.videolan.vlc
 apps.hide=org.videolan.vlc
@@ -119,21 +132,31 @@ name.com.droidlogic.tvinput/.services.Hdmi2InputService/HW6=PS5
 
 Comments go on their own line; anything after `=` is the value.
 
-Back it up with `adb pull`, restore it with `adb push`. Hand edits apply the next
-time the home screen comes back. For a wallpaper, push `wallpaper.jpg` (or `.png`)
-into the same folder and set `background=image`. For several, push them into a
-`wallpapers/` subfolder instead (`.jpg`, `.png` or `.webp`, shown in name order) and
-pick a rotation; while that folder has images, `wallpaper.jpg` is ignored.
+On Fire OS 6/7, back it up with `adb pull` and restore it with `adb push`. Hand
+edits apply the next time the home screen comes back. Fire OS 8 blocks adb from
+`Android/data`, so on that version the Options screen is the way to change
+settings and the built-in scenes are the way to get a background.
+
+The three scenes live in the APK (`assets/wallpapers/`, 1920×1080 WebP, about
+140 KB each), so they survive a TV that cannot reach its app folder. `Auto` follows
+the clock: coast 06:00–17:00, dunes 17:00–21:00, aurora after that. `Next
+background` steps through them without waiting for the hour.
+
+For your own images (Fire OS 6/7), push `wallpaper.jpg` (or `.png`) into that
+folder and set `background=image`. For several, push them into a `wallpapers/`
+subfolder instead (`.jpg`, `.png` or `.webp`, shown in name order) and pick a
+rotation; while that folder has images, `wallpaper.jpg` is ignored.
 
 ```sh
 adb shell mkdir -p /sdcard/Android/data/tv.dumbtv.home/files/wallpapers
 adb push *.jpg /sdcard/Android/data/tv.dumbtv.home/files/wallpapers/
 ```
 
-`rotate=daytime` matches wallpapers to the time of day: name a file with `morning` or `day`
-(06:00–13:00), `afternoon` or `evening` (13:00–20:00), or `night` (the rest), for example
-`morning-coast.jpg` or `night-city.jpg`. Several files for one period take turns on each
-return home. With no file named that way, the period simply picks one image of the folder.
+`rotate=daytime` matches image files to the time of day: name a file with `morning`
+or `day` (06:00–13:00), `afternoon` or `evening` (13:00–20:00), or `night` (the
+rest), for example `morning-coast.jpg` or `night-city.jpg`. Several files for one
+period take turns on each return home. With no file named that way, the period
+simply picks one image of the folder.
 
 ## How HOME works on Fire OS
 
@@ -152,6 +175,11 @@ protected package. Three things combine to make HOME land here, measured on this
 3. **Amazon's home is covered before it draws.** `Guard` keeps an overlay window ready
    (no surface while idle, so it costs nothing during video). It shows the overlay
    the moment Amazon's home appears, and removes it once our window is on screen.
+4. **Fire OS 8 blocks the alarm start.** Android 11 refuses it as a background
+   activity start. `Guard` therefore moves its existing Home task to the front with
+   `moveTaskToFront`, which is allowed and needs no extra permission; the alarm is
+   only the cold-start fallback for when no Home task exists yet. Measured on this
+   TV: HOME returns in about a second.
 
 What you see on HOME: the app, then about 0.3 s of black, then this home screen.
 
@@ -179,9 +207,11 @@ until another app is opened.
 |---|---|
 | `src/.../Home.java` | the home screen: clock, Apps row, Inputs row, tile menu, move mode |
 | `src/.../Tile.java` | one tile, drawn in a single `onDraw`: banner or icon, focus ring |
+| `src/.../Shade.java` | the scrim between wallpaper and text: soft edges, label band, vignette |
 | `src/.../Catalog.java` | which apps and inputs exist, and which are shown in what order |
 | `src/.../Config.java` | the `home.conf` reader and writer |
 | `src/.../Options.java` | the settings screen |
+| `assets/wallpapers/` | aurora, dunes and coast; bundled so no download or storage permission is needed |
 | `src/.../Guard.java` | the Fire OS 7/8 HOME takeover described above |
 | `src/.../Keeper.java` | the Fire OS 6 HOME takeover (UsageStats + moveTaskToFront) |
 | `src/.../BootReceiver.java` | restarts the Keeper after a boot or an update |

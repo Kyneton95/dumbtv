@@ -10,12 +10,14 @@ import android.util.TypedValue;
 import android.widget.TextView;
 
 final class Ui {
-    static final int TEXT = 0xFFF2F2F3;
-    static final int MUTED = 0x99FFFFFF;
-    static final int FAINT = 0x66FFFFFF;
-    static final int SURFACE = 0xFF1C1D21;
+    static final int TEXT = 0xFFEFEFF2;
+    static final int MUTED = 0xB8FFFFFF;
+    static final int FAINT = 0x80FFFFFF;
+    static final int SURFACE = 0xFF17181C;
+    static final int HAIRLINE = 0x1FFFFFFF;
     static final int DIALOG = android.R.style.Theme_DeviceDefault_Dialog_Alert;
     static final Typeface LIGHT = Typeface.create("sans-serif-light", Typeface.NORMAL);
+    static final Typeface REGULAR = Typeface.create("sans-serif", Typeface.NORMAL);
     static final Typeface MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
     private Ui() {}
@@ -45,14 +47,20 @@ final class Ui {
         return d;
     }
 
-    /** Accent fill when focused, a faint fill otherwise. */
-    static void focusStyle(TextView v, int accent, int idle, float radius) {
+    static GradientDrawable round(int color, float radius, int stroke, float width) {
+        GradientDrawable d = round(color, radius);
+        d.setStroke(Math.max(1, Math.round(width)), stroke);
+        return d;
+    }
+
+    /** Accent fill when focused, a faint fill with a hairline otherwise. */
+    static void focusStyle(TextView v, int accent, float radius) {
         StateListDrawable bg = new StateListDrawable();
         bg.addState(new int[] {android.R.attr.state_focused}, round(accent, radius));
-        bg.addState(new int[0], round(idle, radius));
+        bg.addState(new int[0], round(0x14FFFFFF, radius, HAIRLINE, Ui.dp(v.getContext(), 1)));
         v.setBackground(bg);
         v.setTextColor(new ColorStateList(
                 new int[][] {{android.R.attr.state_focused}, {}},
-                new int[] {ink(accent), 0xD9FFFFFF}));
+                new int[] {ink(accent), 0xE6FFFFFF}));
     }
 }

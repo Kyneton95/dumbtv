@@ -67,14 +67,15 @@ final class Config {
     static final Choice INPUTS = new Choice("inputs", "Inputs row", "on",
             new String[] {"on", "off"},
             new String[] {"Shown", "Hidden"});
-    static final Choice BACKGROUND = new Choice("background", "Background", "black",
-            new String[] {"black", "graphite", "midnight", "image"},
-            new String[] {"Black", "Graphite", "Midnight", "Image file"});
-    static final Choice DIM = new Choice("dim", "Image dim", "40",
+    static final Choice BACKGROUND = new Choice("background", "Background", "auto",
+            new String[] {"auto", "aurora", "dunes", "coast", "black", "graphite", "midnight", "image"},
+            new String[] {"Auto by time", "Aurora", "Dunes at dusk", "Moonlit coast",
+                    "Black", "Graphite", "Midnight", "Image file"});
+    static final Choice DIM = new Choice("dim", "Background dim", "0",
             new String[] {"0", "20", "40", "60", "80"},
             new String[] {"0%", "20%", "40%", "60%", "80%"});
 
-    static final Choice ROTATE = new Choice("rotate", "Wallpaper rotation", "off",
+    static final Choice ROTATE = new Choice("rotate", "Image rotation", "off",
             new String[] {"off", "visit", "hourly", "daily", "daytime"},
             new String[] {"Off", "Every return home", "Every hour", "Every day", "By time of day"});
 
@@ -87,7 +88,9 @@ final class Config {
     private static final int[] ACCENTS = {
         0xFFFFFFFF, 0xFF3D8BFF, 0xFF2BC4E8, 0xFF34C759, 0xFFFFB340, 0xFFFF5147, 0xFFFF5C9D, 0xFFA07CFF,
     };
-    private static final int[] BACKGROUNDS = {0xFF000000, 0xFF141518, 0xFF0B1220, 0xFF000000};
+
+    /** Scenes that ship inside the APK, in the order "Next background" steps through them. */
+    static final String[] SCENES = {"aurora", "dunes", "coast"};
 
     private static Config instance;
 
@@ -210,7 +213,29 @@ final class Config {
     }
 
     int background() {
-        return BACKGROUNDS[Arrays.asList(BACKGROUND.values).indexOf(get(BACKGROUND))];
+        switch (get(BACKGROUND)) {
+            case "black": return 0xFF000000;
+            case "graphite": return 0xFF141518;
+            case "midnight": return 0xFF0B1220;
+            default: return 0xFF05070A;
+        }
+    }
+
+    /**
+     * The built-in scene to draw, or null for a solid colour or an image file. "auto" follows
+     * the time of day: the coast through the day, dusk from 17:00, the aurora at night.
+     */
+    String scene() {
+        String v = get(BACKGROUND);
+        if ("auto".equals(v)) return autoScene();
+        return Arrays.asList(SCENES).contains(v) ? v : null;
+    }
+
+    static String autoScene() {
+        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (h >= 6 && h < 17) return "coast";
+        if (h >= 17 && h < 21) return "dunes";
+        return "aurora";
     }
 
     /** Counts returns to the home screen, for the "visit" rotation. */
@@ -218,9 +243,15 @@ final class Config {
         visits++;
     }
 
-    /** Steps the rotation forward by one, so the next wallpaper shows now. */
-    void nextWallpaper() {
-        set(OFFSET, String.valueOf(offset() + 1));
+    /** Steps to the next background: the next scene, or the next image file. */
+    void nextBackground() {
+        String v = get(BACKGROUND);
+        if ("image".equals(v)) {
+            set(OFFSET, String.valueOf(offset() + 1));
+            return;
+        }
+        int i = Arrays.asList(SCENES).indexOf(v);
+        set(BACKGROUND.key, i < 0 ? SCENES[0] : SCENES[(i + 1) % SCENES.length]);
     }
 
     private int offset() {

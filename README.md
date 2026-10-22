@@ -1,5 +1,10 @@
 # dumbtv
 
+> **Fork:** this repository is a fork of
+> [humblemuzzu/dumbtv](https://github.com/humblemuzzu/dumbtv). It adds a
+> cinematic launcher refresh and a Fire OS 8 HOME fix. See [FORK.md](FORK.md)
+> for the short description and [CHANGELOG.md](CHANGELOG.md) for the changes.
+
 Your TV should do what you paid for: your apps, your HDMI inputs, and nothing
 else. No ads from the TV itself, no watch tracking, no update you did not ask
 for. dumbtv applies that over ADB from another machine — **no root**, nothing
@@ -95,7 +100,7 @@ work).
 | Protected packages | The handful Amazon refuses to disable get their background execution and background data removed instead. |
 | Settings | Ad tracking limited, interest-based ads off, app/device usage reporting off, wake word and voice off, promo autoplay off. |
 | DNS | personalDNSfilter runs on the TV: Amazon telemetry, Alexa endpoints and the OTA servers answer `127.0.0.1`. YouTube and the app store still resolve. |
-| Launcher | [dumbtv home](launcher/README.md), this repo's own launcher, replaces Amazon's home screen — no promo tiles, no sponsored rows. 45 KB, open source, no permissions on Fire OS 7/8. |
+| Launcher | [dumbtv home](launcher/README.md), this repo's own launcher, replaces Amazon's home screen — no promo tiles, no sponsored rows. About 480 KB with three built-in wallpapers, open source, no permissions on Fire OS 7/8. |
 
 Every step is reversible with `scripts/restore.sh`.
 
