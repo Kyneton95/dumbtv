@@ -1,7 +1,10 @@
 > **Fork:** this repository is a fork of
 > [humblemuzzu/dumbtv](https://github.com/humblemuzzu/dumbtv). It keeps the
 > upstream 1.2 launcher and adds a cinematic scene layer and a fast Fire OS 8
-> HOME path. See [FORK.md](FORK.md) and [CHANGELOG.md](CHANGELOG.md).
+> HOME path. The launcher is verified on the Fire TV Stick 4K Max (2nd gen,
+> AFTKRT); see [FORK.md](FORK.md#fire-tv-stick-4k-max-2nd-gen-aftkrt) for what
+> upstream's "partial" status does and does not mean. Also see
+> [CHANGELOG.md](CHANGELOG.md).
 
 <p align="center">
   <picture>

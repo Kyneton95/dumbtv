@@ -70,10 +70,33 @@ adb connect <tv-ip>:5555
 Build requirements: JDK 17 and an Android SDK with `platforms;android-28` and
 build-tools. No Gradle.
 
+## Fire TV Stick 4K Max (2nd gen, AFTKRT)
+
+Upstream currently lists the AFTKRT as **partial**. That is not a launcher
+failure: the [AFTKRT catalog entry](https://github.com/humblemuzzu/dumbtv/blob/main/catalog/devices/fireos-amazon-aftkrt.yaml)
+records that its contributor deliberately did not run `launcher.sh` or
+`dnsfilter.sh` (DNS filtering was handled network-wide by Pi-hole), so the full
+pass was incomplete. Upstream's own AFTKM entry also notes that the launcher 1.2
+Fire OS 8 HOME fix was confirmed on an AFTKRT in [PR #49](https://github.com/humblemuzzu/dumbtv/pull/49).
+
+On this fork the **launcher side is tested on an AFTKRT running Fire OS
+8.1.8.2**:
+
+- dumbtv home installs, binds as the HOME app and opens;
+- the first HOME press after an install, repeated presses and rapid presses all
+  return to dumbtv in about a second;
+- rows and grid, all four scenes, the Options screen and app-row changes were
+  exercised.
+
+So the launcher/HOME problem is solved on this device. The upstream
+debloat/DNS-filter verification status is unchanged — this fork has not re-run or
+changed that part.
+
 ## Tested on
 
 - Amazon AFTKRT (Fire TV Stick 4K Max), Fire OS 8.1.8.2 (Android 11, SDK 30):
-  look, scenes, HOME takeover, rapid HOME presses.
+  look, scenes, HOME takeover, rapid HOME presses. See the AFTKRT section above
+  for what upstream's "partial" status does and does not mean.
 - The upstream project's Fire OS 6/7 paths are unchanged.
 
 ## Upstream, license and versioning
