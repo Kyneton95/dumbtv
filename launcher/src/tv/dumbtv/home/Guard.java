@@ -41,7 +41,7 @@ public final class Guard extends AccessibilityService {
     private static final long REPEAT_MS = 1000;
     private static final long LAUNCH_FALLBACK_MS = 150;
     private static final long RETRY_MS = 250;
-    private static final long RETRY_MAX_MS = 3000;
+    private static final long RETRY_MAX_MS = 750;
 
     private static volatile boolean paused;
     private static Guard running;
@@ -118,7 +118,7 @@ public final class Guard extends AccessibilityService {
         handler.removeCallbacks(uncover);
         handler.removeCallbacks(launch);
         handler.removeCallbacks(bring);
-        if (cover != null) ((WindowManager) getSystemService(WINDOW_SERVICE)).removeView(cover);
+        removeCover();
         if (running == this) running = null;
         super.onDestroy();
     }
@@ -170,15 +170,27 @@ public final class Guard extends AccessibilityService {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
         if (manager == null) return false;
         try {
+            ActivityManager.AppTask fallback = null;
             for (ActivityManager.AppTask task : manager.getAppTasks()) {
                 ActivityManager.RecentTaskInfo info = task.getTaskInfo();
                 ComponentName base = info == null || info.baseIntent == null
                         ? null : info.baseIntent.getComponent();
-                if (base != null && getPackageName().equals(base.getPackageName())
-                        && Home.class.getName().equals(base.getClassName())) {
+                if (base == null || !getPackageName().equals(base.getPackageName())
+                        || !Home.class.getName().equals(base.getClassName())) continue;
+                // The recent stack can contain an empty stale Home task. Moving that
+                // one cold-starts Home and leaves Amazon on screen; use a task that
+                // still has an activity, preferring the one with Home on top.
+                if (info.topActivity == null && info.baseActivity == null) continue;
+                if (info.topActivity != null && getPackageName().equals(info.topActivity.getPackageName())
+                        && Home.class.getName().equals(info.topActivity.getClassName())) {
                     task.moveToFront();
                     return true;
                 }
+                if (fallback == null) fallback = task;
+            }
+            if (fallback != null) {
+                fallback.moveToFront();
+                return true;
             }
         } catch (Throwable ignored) {
             // fall through to the cover/alarm path
@@ -217,9 +229,20 @@ public final class Guard extends AccessibilityService {
         handler.postDelayed(launch, LAUNCH_FALLBACK_MS);
     }
 
-    /** The overlay window exists from service start; a GONE root keeps its surface hidden. */
+    /** The cover window exists only during the handoff, never over an app. */
     private void cover() {
-        if (cover == null) return;
+        if (windowManager == null || coverParams == null) return;
+        if (!coverAdded) {
+            cover = new View(this);
+            cover.setBackgroundColor(Config.get(this).background());
+            try {
+                windowManager.addView(cover, coverParams);
+                coverAdded = true;
+            } catch (Throwable ignored) {
+                cover = null;
+                return;
+            }
+        }
         cover.setBackgroundColor(Config.get(this).background());
         cover.setVisibility(View.VISIBLE);
         handler.removeCallbacks(uncover);
@@ -228,7 +251,19 @@ public final class Guard extends AccessibilityService {
 
     private void uncover() {
         handler.removeCallbacks(uncover);
-        if (cover != null) cover.setVisibility(View.GONE);
+        removeCover();
+    }
+
+    private void removeCover() {
+        if (coverAdded && cover != null && windowManager != null) {
+            try {
+                windowManager.removeView(cover);
+            } catch (Throwable ignored) {
+                // already detached
+            }
+        }
+        coverAdded = false;
+        cover = null;
     }
 
     @Override

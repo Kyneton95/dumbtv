@@ -3,6 +3,24 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.12 — 2026-10-23
+
+**First-return HOME cold start and the missing cover fixed.**
+
+- Recents can hold two dumbtv Home tasks, including an empty stale one. The fast
+  path could move the empty task, forcing a cold Home launch and leaving Amazon
+  on screen until it finished. It now skips empty tasks and prefers the task with
+  Home on top.
+- The cold retry was 3 seconds before falling back; it is now 750 ms, so a cold
+  first return does not sit on Amazon while waiting for a task that will not
+  appear.
+- Home is declared `alwaysRetainTaskState` and no longer clears its task on
+  launch, so the first app switch is less likely to lose it.
+- 1.11 left a regression where the cover window was never added at all. The cover
+  is now created only for the handoff and removed afterwards; it is present when
+  needed and absent over apps.
+- APK: 709,501 bytes.
+
 ## 1.11 — 2026-10-23
 
 **No launcher window over running apps.**
