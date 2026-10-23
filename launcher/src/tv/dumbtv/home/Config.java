@@ -97,7 +97,7 @@ final class Config {
         0xFFFFFFFF, 0xFF3D8BFF, 0xFF2BC4E8, 0xFF34C759, 0xFFFFB340, 0xFFFF5147, 0xFFFF5C9D, 0xFFA07CFF,
     };
     /** Scenes that ship inside the APK, in the order "Next background" steps through them. */
-    static final String[] SCENES = {"day", "dunes", "aurora", "coast"};
+    static final String[] SCENES = {"day", "dunes", "coast", "aurora"};
 
     private static Config instance;
 
@@ -242,7 +242,12 @@ final class Config {
     }
 
     static String autoScene() {
-        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        return autoScene(Calendar.getInstance().get(Calendar.HOUR_OF_DAY));
+    }
+
+    /** Pure hour-to-scene mapping, separate from Calendar for host-side tests. */
+    static String autoScene(int hour) {
+        int h = ((hour % 24) + 24) % 24;
         if (h >= 9 && h < 17) return "day";
         if (h >= 5 && h < 9 || h >= 17 && h < 20) return "dunes";
         if (h >= 20) return "coast";
@@ -254,19 +259,28 @@ final class Config {
         visits++;
     }
 
-    /** Steps to the next background: the next scene, or the next image file. */
-    void nextBackground() {
+    /**
+     * The next scene from the currently displayed value. Auto advances from the scene
+     * Auto resolves to, then becomes explicit; a solid/adaptive background has no
+     * next scene and returns null rather than surprising the user with Daylight.
+     */
+    static String nextSceneValue(String value, int hour) {
+        String v = "auto".equals(value) ? autoScene(hour) : value;
+        int i = Arrays.asList(SCENES).indexOf(v);
+        return i < 0 ? null : SCENES[(i + 1) % SCENES.length];
+    }
+
+    /** Steps to the next scene/image. Returns whether anything changed. */
+    boolean nextBackground() {
         String v = get(BACKGROUND);
         if ("image".equals(v) || "adaptive-tint".equals(v)) {
             set(OFFSET, String.valueOf(offset() + 1));
-            return;
+            return true;
         }
-        int i = Arrays.asList(SCENES).indexOf(v);
-        if (i < 0 && !"auto".equals(v)) {
-            set(BACKGROUND.key, SCENES[0]);
-            return;
-        }
-        set(BACKGROUND.key, i < 0 ? SCENES[0] : SCENES[(i + 1) % SCENES.length]);
+        String next = nextSceneValue(v, Calendar.getInstance().get(Calendar.HOUR_OF_DAY));
+        if (next == null) return false;
+        set(BACKGROUND.key, next);
+        return true;
     }
 
     private int offset() {

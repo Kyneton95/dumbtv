@@ -73,6 +73,7 @@ public final class Home extends Activity {
     private Tile moving;
     private String wallKey;
     private Bitmap currentWall;
+    private int wallGeneration;
     private String backgroundMode;
     private ValueAnimator colorAnimation;
     private int displayedColor, targetColor;
@@ -251,6 +252,9 @@ public final class Home extends Activity {
 
     @Override
     protected void onDestroy() {
+        ui.removeCallbacksAndMessages(null);
+        wallGeneration++;
+        currentWall = null;
         unregisterReceiver(packages);
         if (tv != null) tv.unregisterCallback(inputWatch);
         io.shutdownNow();
@@ -262,7 +266,10 @@ public final class Home extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (moving != null) stopMoving();
-        if (resumed) focusFirst();
+        if (resumed) {
+            focusFirst();
+            getWindow().getDecorView().post(Guard::shown);
+        }
     }
 
     @Override
@@ -753,6 +760,7 @@ public final class Home extends Activity {
         if (key == null ? wallKey == null : key.equals(wallKey)) return;
         wallKey = key;
         if (key == null) {
+            wallGeneration++;
             wall.setImageDrawable(null);
             currentWall = null;
             return;
@@ -769,6 +777,7 @@ public final class Home extends Activity {
 
     /** Crossfades to a new background; the first one appears without a fade. */
     private void showWall(Bitmap b) {
+        final int generation = ++wallGeneration;
         if (b == null) {
             wall.setImageDrawable(null);
             currentWall = null;
@@ -786,6 +795,12 @@ public final class Home extends Activity {
         fade.setCrossFadeEnabled(true);
         wall.setImageDrawable(fade);
         fade.startTransition(420);
+        // A completed TransitionDrawable keeps both bitmaps alive. Drop the old layer once
+        // the crossfade is over, unless a newer wallpaper has already taken over.
+        ui.postDelayed(() -> {
+            if (generation != wallGeneration || isDestroyed()) return;
+            wall.setImageDrawable(new BitmapDrawable(getResources(), b));
+        }, 460);
     }
 
     private Bitmap decodeAsset(String name) {

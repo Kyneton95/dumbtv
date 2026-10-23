@@ -3,6 +3,33 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.13 — 2026-10-23
+
+**Review pass: rendering, HOME handoff and Options.**
+
+- Shade now caches its four gradients and uses a separate paint for the flat dim,
+  so the dim colour's alpha cannot leak into the next gradient. Removed identical
+  conditional branches and the unsupported contrast claim.
+- Wallpaper crossfades are replaced by the final drawable when they finish;
+  generation checks stop a stale completion from overwriting a newer scene. No
+  bitmap is recycled while a drawable can still reference it.
+- HOME handoff now uses generation tokens for retries, arrival checks and launch
+  callbacks. `moveToFront` is treated as a requested move, not proof of arrival;
+  Home must acknowledge, with a bounded alarm fallback.
+- Empty stale Home tasks are skipped. If Options is above Home, the task is
+  brought forward and Home is started with CLEAR_TOP rather than leaving Options
+  on screen.
+- Duplicate Amazon-event suppression is reset by a real app event, so a quick
+  app-to-HOME return is not swallowed.
+- Cover cleanup is cancellable and runs on success, cancellation, failure and
+  service destruction; transient task errors are logged.
+- Options groups Appearance and Home screen settings separately, fills the
+  available width, and has a corrected scene list. Next background now advances
+  from Auto's resolved scene, becomes explicit, and does nothing for solid or
+  adaptive backgrounds.
+- `Config.autoScene(hour)` and scene stepping are host-tested at all documented
+  boundaries.
+
 ## 1.12 — 2026-10-23
 
 **First-return HOME cold start and the missing cover fixed.**

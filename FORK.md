@@ -34,9 +34,11 @@ Fire OS.
   starts. The cover window exists only during the handoff and is removed
   immediately afterwards, so no full-screen overlay exists over YouTube. The
   fast path skips empty stale Home tasks in recents and prefers the task with
-  Home on top, and retries only briefly before the fallback. No new permission. Fire OS still shows Amazon for a moment before it emits the
-  accessibility event; that first frame cannot be removed without system
-  privileges.
+  Home on top. If Options is above Home, it moves the task forward and starts
+  Home with CLEAR_TOP so the user never lands back in Options. The cold retry is
+  bounded at 750 ms and the alarm path remains the fallback. No new permission.
+  Fire OS still shows Amazon for a moment before it emits the accessibility
+  event; that first frame cannot be removed without system privileges.
 - **Cleaner artwork.** Supersampled, smoothed ridgelines and lossless source
   encoding remove the stair-stepping visible on a 4K panel.
 - **Small build/install fixes.** Bundled assets are packed by `build.sh`; the
@@ -62,7 +64,7 @@ as documentation photos.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.12` is published here,
+The download URL points at this fork. Until `launcher-v1.13` is published here,
 build and install from source:
 
 ```sh
@@ -108,4 +110,4 @@ changed that part.
 - Not affiliated with or endorsed by upstream.
 - License: MIT (see [LICENSE](LICENSE)); the four scenes are original artwork
   generated for this fork.
-- Version: 1.12. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.13. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

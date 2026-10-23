@@ -15,8 +15,9 @@ A home screen for Fire TV that does one job: show your apps and your HDMI inputs
   Keeper below. Check: `aapt2 dump permissions dumbtv-home.apk`.
 - **No ads, no recommended rows, no account, no analytics, no update checks.**
 - About 60–70 MB of memory with the home screen showing, plus one decoded
-  1080p scene (about 8 MB) when a scene or image is shown; about 37 MB while an app
-  plays (measured on a Fire TV Edition television with 1.4 GB of RAM).
+  1080p scene (about 8 MB) when a scene or image is shown. While an app plays the
+  hidden Home window is no longer force-trimmed, so memory is higher than
+  upstream's 37 MB figure; that trim was removed to avoid display-side effects.
 
 ## Fork additions
 

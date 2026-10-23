@@ -23,10 +23,31 @@ public final class FocusColorTest {
         check((color & 255) > (color >> 16 & 255), "blue stays blue");
         check((FocusColor.tint(color) >>> 24) == 61, "tint is 24 percent opaque");
         check((FocusColor.tint(color) & 0xFFFFFF) == (color & 0xFFFFFF), "tint keeps color");
-        check("black".equals(Config.BACKGROUND.fallback), "default background unchanged");
+        check("auto".equals(Config.BACKGROUND.fallback), "fork default background is Auto");
         check("Adaptive wallpaper tint".equals(Config.BACKGROUND.name("adaptive-tint")),
                 "tint is an Options choice");
         check("Amber".equals(Config.ACCENT.name("amber")), "amber accent unchanged");
+
+        // Auto scene boundaries, exactly as documented in Options.
+        check("aurora".equals(Config.autoScene(0)), "00:00 aurora");
+        check("aurora".equals(Config.autoScene(4)), "04:59 aurora");
+        check("dunes".equals(Config.autoScene(5)), "05:00 dunes");
+        check("dunes".equals(Config.autoScene(8)), "08:59 dunes");
+        check("day".equals(Config.autoScene(9)), "09:00 daylight");
+        check("day".equals(Config.autoScene(16)), "16:59 daylight");
+        check("dunes".equals(Config.autoScene(17)), "17:00 dunes");
+        check("dunes".equals(Config.autoScene(19)), "19:59 dunes");
+        check("coast".equals(Config.autoScene(20)), "20:00 coast");
+        check("coast".equals(Config.autoScene(23)), "23:59 coast");
+        check("coast".equals(Config.autoScene(-1)), "wrapped hour");
+
+        // Next background starts from Auto's resolved scene and then becomes explicit.
+        check("coast".equals(Config.nextSceneValue("auto", 18)), "auto dusk -> coast");
+        check("aurora".equals(Config.nextSceneValue("coast", 18)), "coast -> aurora");
+        check("day".equals(Config.nextSceneValue("aurora", 18)), "aurora -> day");
+        check("dunes".equals(Config.nextSceneValue("day", 18)), "day -> dunes");
+        check(Config.nextSceneValue("black", 18) == null, "solid background has no next scene");
+
         System.out.println("FocusColorTest passed");
     }
 }

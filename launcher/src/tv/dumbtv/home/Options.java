@@ -18,6 +18,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,12 +27,20 @@ import java.util.List;
 public final class Options extends Activity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
+    private static WeakReference<Options> current;
     private final List<Runnable> refreshers = new ArrayList<>();
     private Config cfg;
+
+    /** Called by Guard when Amazon's HOME event arrives; Home must be the task top. */
+    static void dismissForHome() {
+        Options o = current == null ? null : current.get();
+        if (o != null && !o.isFinishing()) o.finish();
+    }
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        current = new WeakReference<>(this);
         cfg = Config.get(this);
 
         ScrollView scroll = new ScrollView(this);
@@ -42,7 +51,7 @@ public final class Options extends Activity {
         scroll.setBackground(page);
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(72), dp(48), dp(72), dp(72));
+        list.setPadding(dp(48), dp(40), dp(48), dp(72));
         scroll.addView(list);
 
         TextView title = Ui.text(this, 34, Ui.TEXT, Ui.LIGHT);
@@ -57,13 +66,14 @@ public final class Options extends Activity {
         list.addView(intro);
 
         header(list, "Appearance");
-        for (Config.Choice c : Config.CHOICES) list.addView(choice(c));
+        addChoices(list, Config.ACCENT, Config.TILES, Config.LABELS, Config.CLOCK,
+                Config.BACKGROUND, Config.DIM, Config.ROTATE);
         list.addView(action("Next background", () -> {
-            cfg.nextBackground();
-            refresh();
+            if (cfg.nextBackground()) refresh();
         }));
 
         header(list, "Home screen");
+        addChoices(list, Config.LAYOUT, Config.INPUTS, Config.SWITCH);
         list.addView(action("Apps shown", () -> pick(Catalog.APPS)));
         list.addView(action("Inputs shown", () -> pick(Catalog.INPUTS)));
         list.addView(action("Reset order, names and hidden tiles", this::reset));
@@ -78,7 +88,7 @@ public final class Options extends Activity {
         about.setLineSpacing(0, 1.45f);
         about.setPadding(dp(18), dp(30), 0, 0);
         about.setText("Settings: " + cfg.dir + "/" + Config.FILE
-                + "\nBuilt-in scenes: Aurora, Dunes at dusk and Moonlit coast. Auto follows the time of day."
+                + "\nBuilt-in scenes: Daylight, Aurora, Dunes at dusk and Moonlit coast. Auto: daylight 09:00-17:00, dunes 05:00-09:00 and 17:00-20:00, coast 20:00-00:00, aurora 00:00-05:00."
                 + "\nCustom wallpaper: put one wallpaper.jpg (or .png/.webp) beside that file, or several in "
                 + Config.WALLPAPERS + "/, then pick Image file or Adaptive wallpaper tint."
                 + "\nOn Fire OS 6/7 you can adb push them; Fire OS 8 blocks adb from that folder."
@@ -96,8 +106,19 @@ public final class Options extends Activity {
         refresh();
     }
 
+    @Override
+    protected void onDestroy() {
+        Options o = current == null ? null : current.get();
+        if (o == this) current = null;
+        super.onDestroy();
+    }
+
     private void refresh() {
         for (Runnable r : refreshers) r.run();
+    }
+
+    private void addChoices(LinearLayout list, Config.Choice... choices) {
+        for (Config.Choice c : choices) list.addView(choice(c));
     }
 
     private View choice(Config.Choice c) {
@@ -166,7 +187,8 @@ public final class Options extends Activity {
         row.setFocusable(true);
         row.setClickable(true);
         row.setPadding(dp(18), dp(15), dp(18), dp(15));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(760), WRAP);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, WRAP);
         lp.bottomMargin = dp(4);
         row.setLayoutParams(lp);
         return row;

@@ -13,6 +13,8 @@ import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -27,7 +29,8 @@ import android.view.accessibility.AccessibilityEvent;
  * so {@link #home} launches through an alarm. That alarm only fires at once when the global
  * {@code alarm_manager_constants} has {@code min_futurity=0}; install.sh sets it.
  *
- * Amazon's home is covered with a plain overlay until ours has drawn, so it never shows.
+ * Amazon's home is covered with a short-lived overlay until ours has drawn. The cover window is
+ * added only for the handoff, so it does not exist over apps.
  *
  * Android 11 refuses an activity start from an app with no visible window, even one sent
  * through system_server by an alarm ("Background activity start ... callingUidHasAnyVisibleWindow:
@@ -35,6 +38,7 @@ import android.view.accessibility.AccessibilityEvent;
  * window manager: {@link #launchWhenCovered} fires it from the cover's first draw pass.
  */
 public final class Guard extends AccessibilityService {
+    private static final String TAG = "dumbtv";
     static final String AMAZON = "com.amazon.tv.launcher";
     private static final String AMAZON_HOME = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
     private static final long COVER_MAX_MS = 6000;
@@ -42,18 +46,25 @@ public final class Guard extends AccessibilityService {
     private static final long LAUNCH_FALLBACK_MS = 150;
     private static final long RETRY_MS = 250;
     private static final long RETRY_MAX_MS = 750;
+    private static final long ARRIVAL_CHECK_MS = 1500;
+    private static final int TASK_NONE = 0;
+    private static final int TASK_HOME = 1;
+    private static final int TASK_OTHER = 2;
 
     private static volatile boolean paused;
     private static Guard running;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable uncover = this::uncover;
-    private final Runnable launch = () -> home(this);
-    private final Runnable bring = this::bringHome;
     private WindowManager windowManager;
     private WindowManager.LayoutParams coverParams;
     private View cover;
     private boolean coverAdded;
+    private Runnable pendingLaunch;
+    private Runnable arrivalCheck;
+    private Runnable retry;
+    private int handoff;
+    private boolean acknowledged;
     private long lastLaunch;
     private long lastMove;
     private long retryUntil;
@@ -75,15 +86,16 @@ public final class Guard extends AccessibilityService {
         alarms.cancel(launch(c));
     }
 
-    /** Called once our home window is on screen. */
+    /** Called when our Home activity has resumed; this is the handoff acknowledgement. */
     static void shown() {
-        if (running != null) running.uncover();
+        if (running != null) running.acknowledge();
     }
 
     private static PendingIntent launch(Context c) {
         Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
                 .setClass(c, Home.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         return PendingIntent.getActivity(c, 0, i, PendingIntent.FLAG_UPDATE_CURRENT,
                 ActivityOptions.makeCustomAnimation(c, 0, 0).toBundle());
     }
@@ -116,11 +128,19 @@ public final class Guard extends AccessibilityService {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(uncover);
-        handler.removeCallbacks(launch);
-        handler.removeCallbacks(bring);
+        removePending();
         removeCover();
         if (running == this) running = null;
         super.onDestroy();
+    }
+
+    private void removePending() {
+        if (pendingLaunch != null) handler.removeCallbacks(pendingLaunch);
+        if (arrivalCheck != null) handler.removeCallbacks(arrivalCheck);
+        if (retry != null) handler.removeCallbacks(retry);
+        pendingLaunch = null;
+        arrivalCheck = null;
+        retry = null;
     }
 
     @Override
@@ -131,86 +151,112 @@ public final class Guard extends AccessibilityService {
         if (!AMAZON.contentEquals(pkg)) {
             if ("com.android.systemui".contentEquals(pkg) || "android".contentEquals(pkg)) return;
             paused = false;
-            handler.removeCallbacks(bring);
-            if (!getPackageName().contentEquals(pkg)) arrived(this);
+            handler.removeCallbacks(retry);
+            // A genuine app event resets both debounces, so a quick app -> HOME press is
+            // not swallowed as a duplicate Amazon event.
+            lastLaunch = 0;
+            lastMove = 0;
+            acknowledged = false;
+            if (!getPackageName().contentEquals(pkg)) {
+                arrived(this);
+                handoff++;
+                removePending();
+                uncover();
+            }
             return;
         }
         if (paused || cls == null || !AMAZON_HOME.contentEquals(cls)) return;
         long now = SystemClock.uptimeMillis();
-        if (now - lastMove < 1500) return;
+        if (acknowledged && now - lastMove < 1500) return;
         if (now - lastLaunch < REPEAT_MS) return;
         lastLaunch = now;
+        Options.dismissForHome();
+        handoff++;
+        acknowledged = false;
+        removePending();
         cover();
         retryUntil = now + RETRY_MAX_MS;
-        handler.removeCallbacks(bring);
-        bringHome();
+        bringHome(handoff);
     }
 
     /** Fast path first; retry briefly, then use the cover/alarm fallback. */
-    private void bringHome() {
-        if (paused) return;
-        if (moveFront()) {
+    private void bringHome(final int token) {
+        if (paused || token != handoff) return;
+        int moved = moveFront();
+        if (moved != TASK_NONE) {
             lastMove = SystemClock.uptimeMillis();
-            handler.postDelayed(this::uncover, 800);
+            if (moved == TASK_OTHER) startHomeDirect();
+            scheduleArrivalCheck(token);
             return;
         }
         if (SystemClock.uptimeMillis() < retryUntil) {
-            handler.postDelayed(bring, RETRY_MS);
+            retry = () -> bringHome(token);
+            handler.postDelayed(retry, RETRY_MS);
             return;
         }
-        launchWhenCovered();
+        launchWhenCovered(token);
     }
 
     /**
      * Moving the existing Home task is not an activity start, so Android 11's background-start
-     * rule does not apply. It is the fast path; the cover/alarm path below is the fallback for a
-     * cold start with no Home task yet.
+     * rule does not apply. Only move when Home is already the task's top activity; if Options is
+     * on top, the alarm path deliberately brings Home back. Empty recent tasks are skipped: moving
+     * one cold-starts Home and leaves Amazon on screen.
      */
-    private boolean moveFront() {
+    private int moveFront() {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        if (manager == null) return false;
+        if (manager == null) return TASK_NONE;
         try {
-            ActivityManager.AppTask fallback = null;
             for (ActivityManager.AppTask task : manager.getAppTasks()) {
                 ActivityManager.RecentTaskInfo info = task.getTaskInfo();
                 ComponentName base = info == null || info.baseIntent == null
                         ? null : info.baseIntent.getComponent();
                 if (base == null || !getPackageName().equals(base.getPackageName())
                         || !Home.class.getName().equals(base.getClassName())) continue;
-                // The recent stack can contain an empty stale Home task. Moving that
-                // one cold-starts Home and leaves Amazon on screen; use a task that
-                // still has an activity, preferring the one with Home on top.
                 if (info.topActivity == null && info.baseActivity == null) continue;
-                if (info.topActivity != null && getPackageName().equals(info.topActivity.getPackageName())
+                if (getPackageName().equals(info.topActivity.getPackageName())
                         && Home.class.getName().equals(info.topActivity.getClassName())) {
                     task.moveToFront();
-                    return true;
+                    return TASK_HOME;
                 }
-                if (fallback == null) fallback = task;
+                // Options (or another activity) is above Home in this task. Move the task
+                // forward, then start Home with CLEAR_TOP so the user never lands on Options.
+                task.moveToFront();
+                return TASK_OTHER;
             }
-            if (fallback != null) {
-                fallback.moveToFront();
-                return true;
-            }
-        } catch (Throwable ignored) {
-            // fall through to the cover/alarm path
+        } catch (RuntimeException e) {
+            Log.w(TAG, "could not move the Home task", e);
         }
-        return false;
+        return TASK_NONE;
+    }
+
+    /** Direct start while the cover is visible; the alarm path remains the fallback. */
+    private void startHomeDirect() {
+        Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                .setClass(this, Home.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        try {
+            startActivity(i);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "direct Home start failed", e);
+        }
     }
 
     /**
      * Shows the cover, then starts the launch once that window is visible to the window manager.
-     * A cover that is already on screen (a repeat within {@link #COVER_MAX_MS}) gets no new draw
-     * pass, so the launch goes out at once; otherwise it waits for the first pre-draw, which runs
-     * after the window's relayout. A short fallback covers a window that never draws.
+     * A cover that is already on screen gets no new draw pass, so the launch goes out at once;
+     * otherwise it waits for the first pre-draw, which runs after the window's relayout. A short
+     * fallback covers a window that never draws.
      */
-    private void launchWhenCovered() {
-        handler.removeCallbacks(launch);
+    private void launchWhenCovered(final int token) {
+        if (token != handoff) return;
+        removePending();
         if (cover == null) {
             home(this);
             return;
         }
-        boolean shown = coverAdded && cover != null && cover.getVisibility() == View.VISIBLE;
+        boolean shown = coverAdded && cover.getVisibility() == View.VISIBLE;
         cover();
         if (shown) {
             home(this);
@@ -220,16 +266,36 @@ public final class Guard extends AccessibilityService {
         observer.addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
             @Override
             public boolean onPreDraw() {
-                cover.getViewTreeObserver().removeOnPreDrawListener(this);
-                handler.removeCallbacks(launch);
+                observer.removeOnPreDrawListener(this);
+                if (token != handoff) return true;
+                if (pendingLaunch != null) handler.removeCallbacks(pendingLaunch);
                 home(Guard.this);
                 return true;
             }
         });
-        handler.postDelayed(launch, LAUNCH_FALLBACK_MS);
+        pendingLaunch = () -> {
+            if (token == handoff) home(Guard.this);
+        };
+        handler.postDelayed(pendingLaunch, LAUNCH_FALLBACK_MS);
     }
 
-    /** The cover window exists only during the handoff, never over an app. */
+    /** moveToFront is not an arrival; wait for Home.shown() and fall back if it never comes. */
+    private void scheduleArrivalCheck(final int token) {
+        if (arrivalCheck != null) handler.removeCallbacks(arrivalCheck);
+        arrivalCheck = () -> {
+            if (token != handoff || acknowledged) return;
+            launchWhenCovered(token);
+        };
+        handler.postDelayed(arrivalCheck, ARRIVAL_CHECK_MS);
+    }
+
+    private void acknowledge() {
+        acknowledged = true;
+        if (arrivalCheck != null) handler.removeCallbacks(arrivalCheck);
+        uncover();
+    }
+
+    /** The cover window exists only during a handoff, never over an app. */
     private void cover() {
         if (windowManager == null || coverParams == null) return;
         if (!coverAdded) {
@@ -238,8 +304,9 @@ public final class Guard extends AccessibilityService {
             try {
                 windowManager.addView(cover, coverParams);
                 coverAdded = true;
-            } catch (Throwable ignored) {
+            } catch (RuntimeException e) {
                 cover = null;
+                Log.w(TAG, "could not add the HOME cover", e);
                 return;
             }
         }
@@ -258,8 +325,8 @@ public final class Guard extends AccessibilityService {
         if (coverAdded && cover != null && windowManager != null) {
             try {
                 windowManager.removeView(cover);
-            } catch (Throwable ignored) {
-                // already detached
+            } catch (RuntimeException e) {
+                Log.w(TAG, "could not remove the HOME cover", e);
             }
         }
         coverAdded = false;
