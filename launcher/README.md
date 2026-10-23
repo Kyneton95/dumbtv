@@ -37,8 +37,6 @@ screen, adaptive backgrounds and the upstream Fire OS 8 HOME fix — and adds:
 
 ![Fork home](../docs/screenshots/homepage.png)
 
-![Fork Options](../docs/screenshots/options.png)
-
 ## Install
 
 You need `adb` and a TV with ADB debugging on.

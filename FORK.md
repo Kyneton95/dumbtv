@@ -35,18 +35,14 @@ Fire OS.
 - **Small build/install fixes.** Bundled assets are packed by `build.sh`; the
   build tolerates a missing `zip`; `install.sh` understands newer adb output.
 
-## Screenshots
+## Screenshot
 
 ![dumbtv home](docs/screenshots/homepage.png)
 
-![Options](docs/screenshots/options.png)
-
-| Daylight | Aurora | Dunes at dusk | Moonlit coast |
-|---|---|---|---|
-| ![Daylight](docs/screenshots/day.jpg) | ![Aurora](docs/screenshots/aurora.jpg) | ![Dunes at dusk](docs/screenshots/dunes.jpg) | ![Moonlit coast](docs/screenshots/coast.jpg) |
-
-The screenshots show the real app row of the test TV; they contain no server
-addresses, account details, IPs or setup tokens.
+This is the only fork screenshot kept in the repository: the public front page,
+with the app row and no server addresses, account details, IPs or setup tokens.
+The wallpaper art itself lives in `launcher/assets/wallpapers/` as app assets, not
+as documentation photos.
 
 ## What stays the same
 
