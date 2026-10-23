@@ -51,8 +51,10 @@ final class Shade extends View {
 
         // bottom: the labels sit on this, and a mid stop stops a bright horizon from
         // cutting through them
-        paint.setShader(new LinearGradient(0, h * 0.34f, 0, h,
-                new int[] {0x00000000, 0x38000000, 0x80000000, 0xB3000000},
+        int[] bottom = bright
+                ? new int[] {0x00000000, 0x26000000, 0x5C000000, 0x8C000000}
+                : new int[] {0x00000000, 0x38000000, 0x80000000, 0xB3000000};
+        paint.setShader(new LinearGradient(0, h * 0.34f, 0, h, bottom,
                 new float[] {0f, 0.42f, 0.72f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRect(0, h * 0.34f, w, h, paint);
 

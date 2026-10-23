@@ -72,7 +72,7 @@ no root:
   stops Amazon's telemetry and automatic updates from reaching their servers.
   Everything else, including your streaming apps, works as before.
 - **Replaces the home screen** with [dumbtv home](launcher/README.md): your apps,
-  your inputs and a clock. About 620 KB including four scenes, open source, no internet access, no permissions.
+  your inputs and a clock. About 640 KB including four scenes, open source, no internet access, no permissions.
 - **Leaves your apps alone.** Nothing you watch is removed unless you name it.
 - **Can all be undone** with one command.
 

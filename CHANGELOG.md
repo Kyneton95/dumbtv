@@ -3,6 +3,18 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.8 — 2026-10-23
+
+**Daylight beach, on the same horizon as the other scenes.**
+
+- Replaced the daylight mountain landscape with a beach whose horizon sits at the
+  same level (about 61% down) as the coast and dunes scenes, so it underlines the
+  app row instead of running into it.
+- Warm sand, a crisp surf edge, broken foam lines, blue sky and cloud. The day-only
+  bottom scrim is lighter so the sand stays visible.
+- Renamed the scene from Daylight to Daylight beach. The auto hours are unchanged.
+- APK: 635,774 bytes.
+
 ## 1.7 — 2026-10-23
 
 **Sharper, brighter daylight.**
