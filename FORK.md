@@ -21,7 +21,7 @@ Fire OS.
 - **A new look.** Full-bleed ambient scenes, a layered scrim, a 64 sp light clock,
   larger 16:9 cards, a softer multi-cue focus state, and a redesigned Options
   screen.
-- **Four built-in scenes.** Daylight coast, Aurora, Dunes at dusk and Moonlit
+- **Four built-in scenes.** Daylight, Aurora, Dunes at dusk and Moonlit
   coast are packed into the APK (1920×1080 WebP). `Auto` follows the clock:
   daylight 09:00–17:00, dunes 05:00–09:00 and 17:00–20:00, moonlit coast
   20:00–00:00, aurora 00:00–05:00. `Next background` steps through them. No
@@ -41,9 +41,9 @@ Fire OS.
 
 ![Options](docs/screenshots/options.png)
 
-| Daylight coast | Aurora | Dunes at dusk | Moonlit coast |
+| Daylight | Aurora | Dunes at dusk | Moonlit coast |
 |---|---|---|---|
-| ![Daylight coast](docs/screenshots/day.jpg) | ![Aurora](docs/screenshots/aurora.jpg) | ![Dunes at dusk](docs/screenshots/dunes.jpg) | ![Moonlit coast](docs/screenshots/coast.jpg) |
+| ![Daylight](docs/screenshots/day.jpg) | ![Aurora](docs/screenshots/aurora.jpg) | ![Dunes at dusk](docs/screenshots/dunes.jpg) | ![Moonlit coast](docs/screenshots/coast.jpg) |
 
 The screenshots show the real app row of the test TV; they contain no server
 addresses, account details, IPs or setup tokens.
@@ -59,7 +59,7 @@ addresses, account details, IPs or setup tokens.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.6` is published here,
+The download URL points at this fork. Until `launcher-v1.7` is published here,
 build and install from source:
 
 ```sh
@@ -82,4 +82,4 @@ build-tools. No Gradle.
 - Not affiliated with or endorsed by upstream.
 - License: MIT (see [LICENSE](LICENSE)); the four scenes are original artwork
   generated for this fork.
-- Version: 1.6. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.7. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

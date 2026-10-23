@@ -23,7 +23,7 @@ A home screen for Fire TV that does one job: show your apps and your HDMI inputs
 This fork tracks upstream launcher 1.2 — grid layout, the built-in HDMI input
 screen, adaptive backgrounds and the upstream Fire OS 8 HOME fix — and adds:
 
-- **Four built-in scenes:** Daylight coast, Aurora, Dunes at dusk and Moonlit
+- **Four built-in scenes:** Daylight, Aurora, Dunes at dusk and Moonlit
   coast, packed into the APK at 1920×1080. `Auto` follows the clock: daylight
   09:00–17:00, dunes 05:00–09:00 and 17:00–20:00, moonlit coast 20:00–00:00,
   aurora 00:00–05:00. `Next background` steps through them. No download or storage
@@ -80,7 +80,7 @@ Undo: `./launcher/install.sh --undo` gives HOME back to Amazon's launcher.
 | Clock | system, 24-hour, 12-hour |
 | Inputs row | shown, hidden |
 | Open inputs with | Automatic, the TV's app, dumbtv home (see below) |
-| Background | auto, daylight coast, aurora, dunes, coast, black, graphite, midnight, image, adaptive, adaptive tint |
+| Background | auto, daylight, aurora, dunes, coast, black, graphite, midnight, image, adaptive, adaptive tint |
 | Background dim, wallpaper rotation | for scenes and images |
 
 Below them: Next background, which apps and inputs appear on the home screen, a

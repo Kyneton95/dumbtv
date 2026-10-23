@@ -40,12 +40,12 @@ final class Shade extends View {
         if (w == 0 || h == 0) return;
 
         // left: holds the clock and the row titles
-        paint.setShader(new LinearGradient(0, 0, w * 0.60f, 0, bright ? 0xA6000000 : 0x80000000, 0x00000000,
+        paint.setShader(new LinearGradient(0, 0, w * 0.60f, 0, bright ? 0x80000000 : 0x80000000, 0x00000000,
                 Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w * 0.60f, h, paint);
 
         // top: keeps the chips readable if the sky is bright
-        paint.setShader(new LinearGradient(0, 0, 0, h * 0.30f, bright ? 0x99000000 : 0x66000000, 0x00000000,
+        paint.setShader(new LinearGradient(0, 0, 0, h * 0.30f, bright ? 0x73000000 : 0x66000000, 0x00000000,
                 Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h * 0.30f, paint);
 
@@ -58,7 +58,7 @@ final class Shade extends View {
 
         // corners fall away, so the eye stays on the rows
         paint.setShader(new RadialGradient(w * 0.5f, h * 0.44f, Math.max(w, h) * 0.72f,
-                new int[] {0x00000000, 0x00000000, bright ? 0x80000000 : 0x66000000},
+                new int[] {0x00000000, 0x00000000, bright ? 0x66000000 : 0x66000000},
                 new float[] {0f, 0.58f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h, paint);
 

@@ -3,6 +3,20 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.7 — 2026-10-23
+
+**Sharper, brighter daylight.**
+
+- Replaced the soft sea/sky daylight scene with a layered mountain landscape:
+  crisp 4×-antialiased ridgelines, a defined sun, cloud and open blue sky. The
+  old scene's smooth sea read as blurry on a 4K panel.
+- Removed a ridge-clipping artefact that drew a flat horizontal line through the
+  first ridge.
+- Lightened the day-only scrim (left 55%, top 50%, vignette 44%) so the scene no
+  longer looks like dusk; text shadows and the darker chips keep the UI legible.
+- Renamed the scene from Daylight coast to Daylight. The auto hours are unchanged.
+- APK: 611,198 bytes.
+
 ## 1.6 — 2026-10-23
 
 **Auto scene hours.**
