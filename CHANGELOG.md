@@ -3,6 +3,18 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.9 — 2026-10-23
+
+**Back to the day-home2 ocean, refined.**
+
+- Restored the open-ocean composition from the original daylight scene instead of
+  replacing it.
+- Lifted the exposure and reduced the vignette so it no longer reads as dusk.
+- Local contrast, a defined sun, a cleaner horizon and fine wave texture give the
+  same scene more clarity without changing what it depicts.
+- No new land, beach or mountain shapes.
+- APK: 709,502 bytes.
+
 ## 1.8 — 2026-10-23
 
 **Daylight beach, on the same horizon as the other scenes.**

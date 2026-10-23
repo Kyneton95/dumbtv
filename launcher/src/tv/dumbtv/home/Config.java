@@ -76,7 +76,7 @@ final class Config {
     static final Choice BACKGROUND = new Choice("background", "Background", "auto",
             new String[] {"auto", "day", "aurora", "dunes", "coast", "black", "graphite", "midnight",
                     "image", "adaptive", "adaptive-tint"},
-            new String[] {"Auto by time", "Daylight beach", "Aurora", "Dunes at dusk",
+            new String[] {"Auto by time", "Daylight", "Aurora", "Dunes at dusk",
                     "Moonlit coast", "Black", "Graphite", "Midnight", "Image file",
                     "Adaptive solid", "Adaptive wallpaper tint"});
     static final Choice DIM = new Choice("dim", "Background dim", "0",
