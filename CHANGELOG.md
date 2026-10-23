@@ -3,6 +3,16 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.6 — 2026-10-23
+
+**Auto scene hours.**
+
+- Daylight 09:00–17:00.
+- Dunes 05:00–09:00 and 17:00–20:00.
+- Moonlit coast 20:00–00:00.
+- Aurora 00:00–05:00.
+- No asset or size change; only the `Auto` clock mapping in `Config.autoScene()`.
+
 ## 1.5 — 2026-10-23
 
 **Daylight background, and `Auto` now follows a full day.**

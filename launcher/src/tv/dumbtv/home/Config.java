@@ -232,7 +232,8 @@ final class Config {
 
     /**
      * The built-in scene to draw, or null for a solid colour, adaptive background or image file.
-     * "auto" follows the time of day: the coast through the day, dusk from 17:00, the aurora at night.
+     * "auto" follows the clock: daylight 09:00-17:00, dunes 05:00-09:00 and 17:00-20:00,
+     * moonlit coast 20:00-00:00, aurora 00:00-05:00.
      */
     String scene() {
         String v = get(BACKGROUND);
@@ -242,8 +243,9 @@ final class Config {
 
     static String autoScene() {
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        if (h >= 6 && h < 17) return "day";
-        if (h >= 17 && h < 20) return "dunes";
+        if (h >= 9 && h < 17) return "day";
+        if (h >= 5 && h < 9 || h >= 17 && h < 20) return "dunes";
+        if (h >= 20) return "coast";
         return "aurora";
     }
 

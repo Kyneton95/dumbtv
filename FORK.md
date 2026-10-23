@@ -23,8 +23,9 @@ Fire OS.
   screen.
 - **Four built-in scenes.** Daylight coast, Aurora, Dunes at dusk and Moonlit
   coast are packed into the APK (1920×1080 WebP). `Auto` follows the clock:
-  daylight 06:00–17:00, dunes 17:00–20:00, aurora at night. `Next background`
-  steps through them. No download, no storage permission.
+  daylight 09:00–17:00, dunes 05:00–09:00 and 17:00–20:00, moonlit coast
+  20:00–00:00, aurora 00:00–05:00. `Next background` steps through them. No
+  download, no storage permission.
 - **Fast Fire OS 8 HOME path.** On top of upstream's cover-based fix, Guard moves
   the existing Home task to the front first (`AppTask.moveToFront`, targeting the
   task whose base activity is `Home`) and keeps the cover/alarm path as fallback.
@@ -58,7 +59,7 @@ addresses, account details, IPs or setup tokens.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.5` is published here,
+The download URL points at this fork. Until `launcher-v1.6` is published here,
 build and install from source:
 
 ```sh
@@ -81,4 +82,4 @@ build-tools. No Gradle.
 - Not affiliated with or endorsed by upstream.
 - License: MIT (see [LICENSE](LICENSE)); the four scenes are original artwork
   generated for this fork.
-- Version: 1.5. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.6. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

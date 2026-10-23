@@ -25,8 +25,9 @@ screen, adaptive backgrounds and the upstream Fire OS 8 HOME fix — and adds:
 
 - **Four built-in scenes:** Daylight coast, Aurora, Dunes at dusk and Moonlit
   coast, packed into the APK at 1920×1080. `Auto` follows the clock: daylight
-  06:00–17:00, dunes 17:00–20:00, aurora at night. `Next background` steps through
-  them. No download or storage permission.
+  09:00–17:00, dunes 05:00–09:00 and 17:00–20:00, moonlit coast 20:00–00:00,
+  aurora 00:00–05:00. `Next background` steps through them. No download or storage
+  permission.
 - **The scene layer:** a layered left/top/bottom scrim with corner falloff, a
   64 sp light clock, larger cards and type, a softer multi-cue focus state, and
   the grouped Options screen.
