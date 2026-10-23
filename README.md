@@ -25,11 +25,11 @@ Ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</
 </p>
 
 <p align="center">
-  <a href="https://github.com/Kyneton95/dumbtv/stargazers"><img src="https://img.shields.io/github/stars/humblemuzzu/dumbtv?style=flat&color=4C8DFF" alt="Stars"></a>
-  <a href="https://github.com/Kyneton95/dumbtv/releases/latest"><img src="https://img.shields.io/github/v/release/humblemuzzu/dumbtv?label=dumbtv%20home&color=4C8DFF" alt="Latest launcher release"></a>
+  <a href="https://github.com/Kyneton95/dumbtv/stargazers"><img src="https://img.shields.io/github/stars/Kyneton95/dumbtv?style=flat&color=4C8DFF" alt="Stars"></a>
+  <a href="https://github.com/Kyneton95/dumbtv/releases/latest"><img src="https://img.shields.io/github/v/release/Kyneton95/dumbtv?label=dumbtv%20home&color=4C8DFF" alt="Latest launcher release"></a>
   <a href="https://github.com/Kyneton95/dumbtv/actions/workflows/validate.yml"><img src="https://github.com/Kyneton95/dumbtv/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C8DFF" alt="MIT licence"></a>
-  <a href="#thanks"><img src="https://img.shields.io/github/contributors/humblemuzzu/dumbtv?color=4C8DFF" alt="Contributors"></a>
+  <a href="#thanks"><img src="https://img.shields.io/github/contributors/Kyneton95/dumbtv?color=4C8DFF" alt="Contributors"></a>
 </p>
 
 <p align="center">
@@ -98,7 +98,7 @@ below.
 **By hand:**
 
 ```sh
-git clone https://github.com/humblemuzzu/dumbtv && cd dumbtv
+git clone https://github.com/Kyneton95/dumbtv && cd dumbtv   # or: git pull
 adb connect <tv-ip>:5555        # press Allow on the TV
 ./scripts/preflight.sh          # what the TV is and what would change; changes nothing
 ./scripts/configure.sh          # a few questions
@@ -157,8 +157,9 @@ anything anywhere. On Fire OS 7 and 8 it asks for no permissions at all. It work
 on its own, without the rest of dumbtv:
 
 ```sh
-adb connect <tv-ip>:5555
-./launcher/install.sh
+git clone https://github.com/Kyneton95/dumbtv && cd dumbtv   # or: git pull
+adb connect <tv-ip>:5555        # press Allow on the TV
+./launcher/install.sh            # downloads the release, checks its SHA-256, installs and takes over HOME
 ```
 
 [launcher/README.md](launcher/README.md) covers the settings, wallpapers and how

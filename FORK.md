@@ -64,15 +64,17 @@ as documentation photos.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.13` is published here,
-build and install from source:
+The 1.13 release is published from this fork, and `install.sh` downloads it from
+this repository, verifies the pinned SHA-256, installs it and takes over HOME.
 
 ```sh
-adb connect <tv-ip>:5555
-./launcher/install.sh --build
+git clone https://github.com/Kyneton95/dumbtv.git && cd dumbtv   # or: git pull
+adb connect <tv-ip>:5555        # press Allow on the TV
+./launcher/install.sh
 ```
 
-Build requirements: JDK 17 and an Android SDK with `platforms;android-28` and
+To build from source instead, use `./launcher/install.sh --build`. Build
+requirements: JDK 17 and an Android SDK with `platforms;android-28` and
 build-tools. No Gradle.
 
 ## Fire TV Stick 4K Max (2nd gen, AFTKRT)
