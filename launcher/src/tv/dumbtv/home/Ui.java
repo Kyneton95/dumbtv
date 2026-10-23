@@ -57,7 +57,7 @@ final class Ui {
     static void focusStyle(TextView v, int accent, float radius) {
         StateListDrawable bg = new StateListDrawable();
         bg.addState(new int[] {android.R.attr.state_focused}, round(accent, radius));
-        bg.addState(new int[0], round(0x14FFFFFF, radius, HAIRLINE, Ui.dp(v.getContext(), 1)));
+        bg.addState(new int[0], round(0x4D000000, radius, 0x33FFFFFF, Ui.dp(v.getContext(), 1)));
         v.setBackground(bg);
         v.setTextColor(new ColorStateList(
                 new int[][] {{android.R.attr.state_focused}, {}},

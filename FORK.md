@@ -2,7 +2,7 @@
 
 **Short description for GitHub (About):**
 
-> A fork of dumbtv home: a quieter, cinematic Fire TV launcher with three bundled
+> A fork of dumbtv home: a quieter, cinematic Fire TV launcher with four bundled
 > ambient scenes and a working HOME takeover on Fire OS 8. Still offline, ad-free,
 > and permission-free on Fire OS 7/8. Apps and HDMI inputs only.
 
@@ -21,8 +21,9 @@ Fire OS.
 - **A new look.** Full-bleed ambient scenes, a layered scrim, a 64 sp light clock,
   larger 16:9 cards, a softer multi-cue focus state, and a redesigned Options
   screen.
-- **Three built-in scenes.** Aurora, Dunes at dusk and Moonlit coast are packed
-  into the APK (1920×1080 WebP). `Auto` follows the time of day; `Next background`
+- **Four built-in scenes.** Daylight coast, Aurora, Dunes at dusk and Moonlit
+  coast are packed into the APK (1920×1080 WebP). `Auto` follows the clock:
+  daylight 06:00–17:00, dunes 17:00–20:00, aurora at night. `Next background`
   steps through them. No download, no storage permission.
 - **Fast Fire OS 8 HOME path.** On top of upstream's cover-based fix, Guard moves
   the existing Home task to the front first (`AppTask.moveToFront`, targeting the
@@ -39,9 +40,9 @@ Fire OS.
 
 ![Options](docs/screenshots/options.png)
 
-| Aurora | Dunes at dusk | Moonlit coast |
-|---|---|---|
-| ![Aurora](docs/screenshots/aurora.jpg) | ![Dunes at dusk](docs/screenshots/dunes.jpg) | ![Moonlit coast](docs/screenshots/coast.jpg) |
+| Daylight coast | Aurora | Dunes at dusk | Moonlit coast |
+|---|---|---|---|
+| ![Daylight coast](docs/screenshots/day.jpg) | ![Aurora](docs/screenshots/aurora.jpg) | ![Dunes at dusk](docs/screenshots/dunes.jpg) | ![Moonlit coast](docs/screenshots/coast.jpg) |
 
 The screenshots show the real app row of the test TV; they contain no server
 addresses, account details, IPs or setup tokens.
@@ -57,7 +58,7 @@ addresses, account details, IPs or setup tokens.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.4` is published here,
+The download URL points at this fork. Until `launcher-v1.5` is published here,
 build and install from source:
 
 ```sh
@@ -78,6 +79,6 @@ build-tools. No Gradle.
 
 - Upstream: [humblemuzzu/dumbtv](https://github.com/humblemuzzu/dumbtv)
 - Not affiliated with or endorsed by upstream.
-- License: MIT (see [LICENSE](LICENSE)); the three scenes are original artwork
+- License: MIT (see [LICENSE](LICENSE)); the four scenes are original artwork
   generated for this fork.
-- Version: 1.4. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.5. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

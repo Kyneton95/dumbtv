@@ -129,6 +129,7 @@ public final class Home extends Activity {
             title = Ui.text(Home.this, 15, 0xA6FFFFFF, Ui.MEDIUM);
             title.setText(name.toUpperCase(Locale.ROOT));
             title.setLetterSpacing(0.16f);
+            title.setShadowLayer(dp(4), 0, dp(1), 0x99000000);
             title.setPadding(edge, dp(24), edge, dp(2));
             strip = new LinearLayout(Home.this);
             strip.setClipChildren(false);
@@ -475,6 +476,7 @@ public final class Home extends Activity {
         clock.setLetterSpacing(-0.02f);
         date = Ui.text(this, 17, Ui.MUTED, Ui.REGULAR);
         date.setLetterSpacing(0.01f);
+        date.setShadowLayer(dp(4), 0, dp(1), 0x99000000);
         date.setPadding(dp(3), dp(10), 0, 0);
         when.addView(clock);
         when.addView(date);
@@ -761,7 +763,7 @@ public final class Home extends Activity {
             root.setBackgroundColor(cfg.background());
         }
         int dim = Integer.parseInt(cfg.get(Config.DIM));
-        shade.set(dim, scene != null || file != null);
+        shade.set(dim, scene != null || file != null, "day".equals(scene));
         String key = scene != null ? "scene:" + scene
                 : file == null ? null : file.getPath() + ":" + file.lastModified();
         if (key == null ? wallKey == null : key.equals(wallKey)) return;

@@ -3,6 +3,19 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.5 — 2026-10-23
+
+**Daylight background, and `Auto` now follows a full day.**
+
+- Added a fourth scene, **Daylight coast**: blue sky, cloud, sun and open sea, no
+  stars or moon.
+- `Auto` now maps 06:00–17:00 to Daylight coast, 17:00–20:00 to Dunes at dusk and
+  the rest to Aurora. Previously 06:00–17:00 used the moonlit coast, so a 4pm
+  screen showed a starry night.
+- The day scene gets a stronger left/top scrim; the date, row labels and idle
+  chips also gained contrast so white type holds over a bright sky.
+- APK: 627,582 bytes with four scenes; SHA-256 pinned in `launcher/version.env`.
+
 ## 1.4 — 2026-10-23
 
 **Merged upstream 1.2 (95 commits) and kept the fork's look.**

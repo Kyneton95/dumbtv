@@ -74,10 +74,11 @@ final class Config {
             new String[] {"auto", "tv", "home"},
             new String[] {"Automatic", "The TV's app", "dumbtv home"});
     static final Choice BACKGROUND = new Choice("background", "Background", "auto",
-            new String[] {"auto", "aurora", "dunes", "coast", "black", "graphite", "midnight",
+            new String[] {"auto", "day", "aurora", "dunes", "coast", "black", "graphite", "midnight",
                     "image", "adaptive", "adaptive-tint"},
-            new String[] {"Auto by time", "Aurora", "Dunes at dusk", "Moonlit coast", "Black",
-                    "Graphite", "Midnight", "Image file", "Adaptive solid", "Adaptive wallpaper tint"});
+            new String[] {"Auto by time", "Daylight coast", "Aurora", "Dunes at dusk",
+                    "Moonlit coast", "Black", "Graphite", "Midnight", "Image file",
+                    "Adaptive solid", "Adaptive wallpaper tint"});
     static final Choice DIM = new Choice("dim", "Background dim", "0",
             new String[] {"0", "20", "40", "60", "80"},
             new String[] {"0%", "20%", "40%", "60%", "80%"});
@@ -96,7 +97,7 @@ final class Config {
         0xFFFFFFFF, 0xFF3D8BFF, 0xFF2BC4E8, 0xFF34C759, 0xFFFFB340, 0xFFFF5147, 0xFFFF5C9D, 0xFFA07CFF,
     };
     /** Scenes that ship inside the APK, in the order "Next background" steps through them. */
-    static final String[] SCENES = {"aurora", "dunes", "coast"};
+    static final String[] SCENES = {"day", "dunes", "aurora", "coast"};
 
     private static Config instance;
 
@@ -241,8 +242,8 @@ final class Config {
 
     static String autoScene() {
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        if (h >= 6 && h < 17) return "coast";
-        if (h >= 17 && h < 21) return "dunes";
+        if (h >= 6 && h < 17) return "day";
+        if (h >= 17 && h < 20) return "dunes";
         return "aurora";
     }
 
