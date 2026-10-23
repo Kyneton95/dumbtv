@@ -258,23 +258,6 @@ public final class Home extends Activity {
         super.onDestroy();
     }
 
-    /**
-     * Android 9 keeps a hidden window's GPU context (about 35 MB on this TV) unless memory is
-     * critical. Dropping it while an app plays costs one context rebuild on the way back.
-     */
-    @Override
-    public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        if (level < TRIM_MEMORY_UI_HIDDEN || level >= TRIM_MEMORY_COMPLETE) return;
-        try {
-            Class<?> wmg = Class.forName("android.view.WindowManagerGlobal");
-            Object global = wmg.getMethod("getInstance").invoke(null);
-            wmg.getMethod("trimMemory", int.class).invoke(global, TRIM_MEMORY_COMPLETE);
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // not reachable on this build: the context simply stays
-        }
-    }
-
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);

@@ -3,6 +3,21 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.11 — 2026-10-23
+
+**No launcher window over running apps.**
+
+- The full-screen accessibility cover is now created only when the HOME handoff
+  begins and removed immediately afterwards. While YouTube or any other app is in
+  front, there is no dumbtv overlay window at all. This targets the intermittent
+  YouTube fade/flash; the hidden cover layer was the only launcher window that
+  existed over playback.
+- Removed the `Home.onTrimMemory` hidden-window GPU trim, which manipulated the
+  launcher's window manager while another app was playing. It saved about 35 MB
+  but is not worth a display-side side effect.
+- The 1.10 HOME handoff/cover timing is unchanged.
+- No new permission.
+
 ## 1.10 — 2026-10-23
 
 **HOME handoff no longer reveals Amazon's home during the fallback.**

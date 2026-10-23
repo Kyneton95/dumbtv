@@ -50,7 +50,10 @@ public final class Guard extends AccessibilityService {
     private final Runnable uncover = this::uncover;
     private final Runnable launch = () -> home(this);
     private final Runnable bring = this::bringHome;
+    private WindowManager windowManager;
+    private WindowManager.LayoutParams coverParams;
     private View cover;
+    private boolean coverAdded;
     private long lastLaunch;
     private long lastMove;
     private long retryUntil;
@@ -99,18 +102,15 @@ public final class Guard extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         running = this;
-        View view = new View(this);
-        view.setVisibility(View.GONE);
-        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        coverParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.OPAQUE);
-        lp.windowAnimations = 0;
-        ((WindowManager) getSystemService(WINDOW_SERVICE)).addView(view, lp);
-        cover = view;
+        coverParams.windowAnimations = 0;
     }
 
     @Override
@@ -198,7 +198,7 @@ public final class Guard extends AccessibilityService {
             home(this);
             return;
         }
-        boolean shown = cover.getVisibility() == View.VISIBLE;
+        boolean shown = coverAdded && cover != null && cover.getVisibility() == View.VISIBLE;
         cover();
         if (shown) {
             home(this);
