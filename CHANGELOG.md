@@ -3,6 +3,20 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.10 — 2026-10-23
+
+**HOME handoff no longer reveals Amazon's home during the fallback.**
+
+- The black cover now stays up for up to 6 seconds, until our Home is resumed,
+  instead of dropping after 1.5 seconds and exposing Amazon while the alarm start
+  completes.
+- A duplicate Amazon window event within 1.5 seconds of a successful task move is
+  ignored, so it cannot re-cover the screen after Home has already resumed.
+- The cover is removed 800 ms after a successful move and on Home's first frame.
+- No new permission: this stays on the accessibility `AppTask` path.
+- Fire OS still shows Amazon for a moment before its accessibility event; that
+  first frame cannot be removed without system privileges.
+
 ## 1.9 — 2026-10-23
 
 **Back to the day-home2 ocean, refined.**

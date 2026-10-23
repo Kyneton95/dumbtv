@@ -231,6 +231,7 @@ public final class Home extends Activity {
         f.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         registerReceiver(time, f);
         tick();
+        getWindow().getDecorView().post(Guard::shown);
     }
 
     @Override

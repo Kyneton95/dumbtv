@@ -37,7 +37,7 @@ import android.view.accessibility.AccessibilityEvent;
 public final class Guard extends AccessibilityService {
     static final String AMAZON = "com.amazon.tv.launcher";
     private static final String AMAZON_HOME = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
-    private static final long COVER_MAX_MS = 1500;
+    private static final long COVER_MAX_MS = 6000;
     private static final long REPEAT_MS = 1000;
     private static final long LAUNCH_FALLBACK_MS = 150;
     private static final long RETRY_MS = 250;
@@ -52,6 +52,7 @@ public final class Guard extends AccessibilityService {
     private final Runnable bring = this::bringHome;
     private View cover;
     private long lastLaunch;
+    private long lastMove;
     private long retryUntil;
 
     /** Lets Amazon's home stay on screen until the user leaves it. */
@@ -136,6 +137,7 @@ public final class Guard extends AccessibilityService {
         }
         if (paused || cls == null || !AMAZON_HOME.contentEquals(cls)) return;
         long now = SystemClock.uptimeMillis();
+        if (now - lastMove < 1500) return;
         if (now - lastLaunch < REPEAT_MS) return;
         lastLaunch = now;
         cover();
@@ -147,7 +149,11 @@ public final class Guard extends AccessibilityService {
     /** Fast path first; retry briefly, then use the cover/alarm fallback. */
     private void bringHome() {
         if (paused) return;
-        if (moveFront()) return;
+        if (moveFront()) {
+            lastMove = SystemClock.uptimeMillis();
+            handler.postDelayed(this::uncover, 800);
+            return;
+        }
         if (SystemClock.uptimeMillis() < retryUntil) {
             handler.postDelayed(bring, RETRY_MS);
             return;
