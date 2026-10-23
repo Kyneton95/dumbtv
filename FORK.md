@@ -15,16 +15,19 @@ Fire OS.
 
 ## What is different
 
+- **Upstream 1.2 included.** The launcher now carries upstream's grid layout,
+  built-in HDMI input screen, adaptive backgrounds and cover-based Fire OS 8 HOME
+  fix, plus all 95 upstream commits.
 - **A new look.** Full-bleed ambient scenes, a layered scrim, a 64 sp light clock,
   larger 16:9 cards, a softer multi-cue focus state, and a redesigned Options
   screen.
 - **Three built-in scenes.** Aurora, Dunes at dusk and Moonlit coast are packed
   into the APK (1920×1080 WebP). `Auto` follows the time of day; `Next background`
   steps through them. No download, no storage permission.
-- **Fire OS 8 HOME fix.** Android 11 blocks the alarm-fired activity start the
-  upstream Guard used. This fork moves the existing Home task to the front
-  instead (`moveTaskToFront`), targeting the task whose base activity is
-  `Home`. No new permission.
+- **Fast Fire OS 8 HOME path.** On top of upstream's cover-based fix, Guard moves
+  the existing Home task to the front first (`AppTask.moveToFront`, targeting the
+  task whose base activity is `Home`) and keeps the cover/alarm path as fallback.
+  No new permission.
 - **Cleaner artwork.** Supersampled, smoothed ridgelines and lossless source
   encoding remove the stair-stepping visible on a 4K panel.
 - **Small build/install fixes.** Bundled assets are packed by `build.sh`; the
@@ -54,7 +57,7 @@ addresses, account details, IPs or setup tokens.
 
 ## Install
 
-The download URL points at this fork. Until `launcher-v1.3` is published here,
+The download URL points at this fork. Until `launcher-v1.4` is published here,
 build and install from source:
 
 ```sh
@@ -77,4 +80,4 @@ build-tools. No Gradle.
 - Not affiliated with or endorsed by upstream.
 - License: MIT (see [LICENSE](LICENSE)); the three scenes are original artwork
   generated for this fork.
-- Version: see `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.4. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

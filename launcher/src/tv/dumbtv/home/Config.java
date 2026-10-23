@@ -58,6 +58,9 @@ final class Config {
     static final Choice TILES = new Choice("tiles", "Tile size", "medium",
             new String[] {"small", "medium", "large"},
             new String[] {"Small", "Medium", "Large"});
+    static final Choice LAYOUT = new Choice("layout", "Layout", "rows",
+            new String[] {"rows", "grid"},
+            new String[] {"Rows", "Grid"});
     static final Choice LABELS = new Choice("labels", "App names", "focus",
             new String[] {"focus", "always", "never"},
             new String[] {"On focus", "Always", "Never"});
@@ -67,19 +70,23 @@ final class Config {
     static final Choice INPUTS = new Choice("inputs", "Inputs row", "on",
             new String[] {"on", "off"},
             new String[] {"Shown", "Hidden"});
+    static final Choice SWITCH = new Choice("switch", "Open inputs with", "auto",
+            new String[] {"auto", "tv", "home"},
+            new String[] {"Automatic", "The TV's app", "dumbtv home"});
     static final Choice BACKGROUND = new Choice("background", "Background", "auto",
-            new String[] {"auto", "aurora", "dunes", "coast", "black", "graphite", "midnight", "image"},
-            new String[] {"Auto by time", "Aurora", "Dunes at dusk", "Moonlit coast",
-                    "Black", "Graphite", "Midnight", "Image file"});
+            new String[] {"auto", "aurora", "dunes", "coast", "black", "graphite", "midnight",
+                    "image", "adaptive", "adaptive-tint"},
+            new String[] {"Auto by time", "Aurora", "Dunes at dusk", "Moonlit coast", "Black",
+                    "Graphite", "Midnight", "Image file", "Adaptive solid", "Adaptive wallpaper tint"});
     static final Choice DIM = new Choice("dim", "Background dim", "0",
             new String[] {"0", "20", "40", "60", "80"},
             new String[] {"0%", "20%", "40%", "60%", "80%"});
 
-    static final Choice ROTATE = new Choice("rotate", "Image rotation", "off",
+    static final Choice ROTATE = new Choice("rotate", "Wallpaper rotation", "off",
             new String[] {"off", "visit", "hourly", "daily", "daytime"},
             new String[] {"Off", "Every return home", "Every hour", "Every day", "By time of day"});
 
-    static final Choice[] CHOICES = {ACCENT, TILES, LABELS, CLOCK, INPUTS, BACKGROUND, DIM, ROTATE};
+    static final Choice[] CHOICES = {ACCENT, TILES, LAYOUT, LABELS, CLOCK, INPUTS, SWITCH, BACKGROUND, DIM, ROTATE};
 
     /** Folder of wallpapers, next to home.conf, that Background › Image file rotates through. */
     static final String WALLPAPERS = "wallpapers";
@@ -88,7 +95,6 @@ final class Config {
     private static final int[] ACCENTS = {
         0xFFFFFFFF, 0xFF3D8BFF, 0xFF2BC4E8, 0xFF34C759, 0xFFFFB340, 0xFFFF5147, 0xFFFF5C9D, 0xFFA07CFF,
     };
-
     /** Scenes that ship inside the APK, in the order "Next background" steps through them. */
     static final String[] SCENES = {"aurora", "dunes", "coast"};
 
@@ -215,15 +221,17 @@ final class Config {
     int background() {
         switch (get(BACKGROUND)) {
             case "black": return 0xFF000000;
-            case "graphite": return 0xFF141518;
+            case "graphite":
+            case "adaptive":
+            case "adaptive-tint": return 0xFF141518;
             case "midnight": return 0xFF0B1220;
             default: return 0xFF05070A;
         }
     }
 
     /**
-     * The built-in scene to draw, or null for a solid colour or an image file. "auto" follows
-     * the time of day: the coast through the day, dusk from 17:00, the aurora at night.
+     * The built-in scene to draw, or null for a solid colour, adaptive background or image file.
+     * "auto" follows the time of day: the coast through the day, dusk from 17:00, the aurora at night.
      */
     String scene() {
         String v = get(BACKGROUND);
@@ -246,11 +254,15 @@ final class Config {
     /** Steps to the next background: the next scene, or the next image file. */
     void nextBackground() {
         String v = get(BACKGROUND);
-        if ("image".equals(v)) {
+        if ("image".equals(v) || "adaptive-tint".equals(v)) {
             set(OFFSET, String.valueOf(offset() + 1));
             return;
         }
         int i = Arrays.asList(SCENES).indexOf(v);
+        if (i < 0 && !"auto".equals(v)) {
+            set(BACKGROUND.key, SCENES[0]);
+            return;
+        }
         set(BACKGROUND.key, i < 0 ? SCENES[0] : SCENES[(i + 1) % SCENES.length]);
     }
 
@@ -333,7 +345,7 @@ final class Config {
             int n = pool.size();
             return pool.get((int) (((step + offset()) % n + n) % n));
         }
-        for (String name : new String[] {"wallpaper.jpg", "wallpaper.png", "wallpaper.webp"}) {
+        for (String name : new String[] {"wallpaper.jpg", "wallpaper.jpeg", "wallpaper.png", "wallpaper.webp"}) {
             File f = new File(dir, name);
             if (f.isFile()) return f;
         }

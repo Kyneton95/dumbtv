@@ -18,12 +18,11 @@ fi
 PKG=tv.dumbtv.home
 
 step "plan"
-note "install dumbtv home: open source, 45 KB, no internet permission, no ad ID"
+note "install dumbtv home: open source, 54 KB, no internet permission, no ad ID"
+note "the prebuilt APK comes from this repo's GitHub release and is checksum-verified"
 if [[ $SDK -lt 28 ]]; then
-  note "$(fireos_name): built from source with MIN_SDK=$SDK (the release APK needs Android 9)"
   note "take over HOME: Keeper (UsageStats + moveTaskToFront, no accessibility)"
 else
-  note "the prebuilt APK comes from this repo's GitHub release and is checksum-verified"
   note "take over HOME: accessibility service + settings global alarm_manager_constants min_futurity=0"
 fi
 note "Amazon's launcher stays installed: hold HOME for Fire OS's menu, or Options > Open Amazon's home screen"
@@ -41,6 +40,6 @@ if printf '%s' "$home" | grep -q "$PKG"; then
   note "home screen is dumbtv home"
 else
   note "home screen is $home"
-  note "press HOME once or run this script again; see docs/GOTCHAS.md if it will not stick"
+  note "press HOME once or run this script again; see docs/TROUBLESHOOTING.md if it will not stick"
   exit 1
 fi

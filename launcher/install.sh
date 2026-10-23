@@ -82,29 +82,34 @@ if [[ $mode == undo ]]; then
   sh_ appops set $PKG GET_USAGE_STATS default >/dev/null 2>&1 || true
   set_futurity off
   set_guard ""
-  sh_ am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
+  sh_ am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1 || true
   echo "HOME handed back to Amazon's launcher (dumbtv home stays installed: adb uninstall $PKG)"
   exit 0
 fi
 
-# The release APK is built for Android 9+. Fire OS 6 (Android 7.1) gets a build from source.
 dev_sdk=$(sh_ getprop ro.build.version.sdk | tr -d '\r')
 case $dev_sdk in ''|*[!0-9]*) dev_sdk=28 ;; esac
-if [[ $dev_sdk -lt 28 ]]; then
-  [[ $mode == release ]] && echo "Fire OS 6 (sdk $dev_sdk): the release APK needs Android 9, building from source"
-  mode=build
-  export MIN_SDK=${MIN_SDK:-$dev_sdk}
-fi
 
-if [[ $mode == build ]]; then
+build_apk() {
   ./build.sh
   APK=build/dumbtv-home.apk
+}
+
+# adb ends its output with a blank line, so take the line that carries the result.
+install_apk() {
+  out=$(adb_ install -r "$APK" 2>&1 | grep -m1 -E 'Success|Failure|failed' || true)
+}
+
+if [[ $mode == build ]]; then
+  build_apk
 else
   mkdir -p build
   APK=build/dumbtv-home-$VERSION.apk
   if [[ ! -f $APK || $(sha256 "$APK") != "$APK_SHA256" ]]; then
     echo "downloading dumbtv home $VERSION"
-    curl -fL --progress-bar -o "$APK.part" "$APK_URL" || { echo "error: could not download $APK_URL" >&2; exit 1; }
+    # --retry-all-errors: GitHub's release CDN sometimes resets the first connection.
+    curl -fL --retry 4 --retry-delay 3 --retry-all-errors --connect-timeout 20 --progress-bar \
+      -o "$APK.part" "$APK_URL" || { echo "error: could not download $APK_URL" >&2; exit 1; }
     mv "$APK.part" "$APK"
   fi
   got=$(sha256 "$APK")
@@ -112,7 +117,15 @@ else
   echo "checksum ok"
 fi
 
-out=$(adb_ install -r "$APK" 2>&1 | tail -1 || true)
+install_apk
+# Releases up to 1.1 were built for Android 9+. On Fire OS 6 (sdk 25) fall back to a
+# source build; the default build already targets sdk 25.
+if [[ $mode == release && $out == *INSTALL_FAILED_OLDER_SDK* ]]; then
+  echo "release $VERSION needs a newer Android than sdk $dev_sdk, building from source"
+  mode=build
+  build_apk
+  install_apk
+fi
 case $out in
   # Newer adb ends with "Install command complete in ...", older with "Success".
   *Success*|*"Install command complete"*) ;;
@@ -121,7 +134,7 @@ case $out in
     echo "  back up your settings:  adb pull /sdcard/Android/data/$PKG/files/home.conf" >&2
     echo "  then remove it:         adb uninstall $PKG    and run this again" >&2
     exit 1 ;;
-  *) echo "error: adb install failed: $out" >&2; exit 1 ;;
+  *) echo "error: adb install failed: $(printf '%s' "$out" | tail -1)" >&2; exit 1 ;;
 esac
 echo "installed $PKG"
 
@@ -135,7 +148,7 @@ if [[ $dev_sdk -lt 28 ]]; then
   sh_ appops set $PKG GET_USAGE_STATS allow
   sh_ am start -W -n $PKG/.Home >/dev/null
   sleep 3
-  if ! sh_ dumpsys activity services $PKG 2>/dev/null | grep -q 'isForeground=true'; then
+  if ! grep -q 'isForeground=true' <<<"$(sh_ dumpsys activity services $PKG 2>/dev/null)"; then
     echo "error: the Fire OS 6 home keeper did not start ($PKG/.Keeper)" >&2
     exit 1
   fi

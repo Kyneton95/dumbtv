@@ -6,9 +6,20 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 parse_flags "$@"
 need_device
+load_conf
+
+# Everything debloat.sh or youtube.sh may have switched off, under any answers.
+restore_list() {
+  {
+    list_of "$(fos packages.txt)"
+    list_of "$(fos alexa.txt)"
+    list_of "$(fos user-apps.txt)"
+    printf '%s\n' $REMOVE_EXTRA com.amazon.firetv.youtube
+  } | awk 'NF {print $1}' | awk '!seen[$0]++'
+}
 
 step "plan"
-note "re-enable/restore every package in ${DATA#$ROOT/}/$(basename "$(dirname "$(fos packages.txt)")")/packages.txt"
+note "turn back on every package dumbtv can disable: the ads list, Alexa, apps you named, YouTube"
 note "clear app-ops and network blacklists"
 note "detach the DNS filter and the launcher hook"
 note "put back every setting from report/settings-before-*.txt, or the bundled defaults"
@@ -31,15 +42,31 @@ restore_value() {
 }
 
 step "packages"
-for p in $(list_of "$(fos packages.txt)"); do
-  # Fire OS 6 has no install-existing; debloat.sh only disabled there, so enable is enough.
-  a="no install-existing"
-  [[ $REINSTALL == 1 ]] && a=$(acmd cmd package install-existing "$p" 2>&1 | head -1)
+for p in $(restore_list); do
+  # Older versions uninstalled some system apps for user 0; install-existing brings
+  # those back where the build has it. Store apps come back from the store.
+  if ! present "$p"; then
+    [[ $REINSTALL == 1 ]] || continue
+    a=$(acmd cmd package install-existing "$p" 2>&1 | head -1)
+    present "$p" || continue
+  else
+    a="installed"
+  fi
   b=$(acmd pm enable --user 0 "$p" 2>&1 | head -1)
   bg_on "$p"
   uid=$(uid_of "$p")
   [[ -n $uid ]] && acmd cmd netpolicy remove restrict-background-blacklist "$uid" >/dev/null 2>&1
   printf '  %-46s %s / %s\n' "$p" "${a:-no output}" "${b:-no output}"
+done
+
+# Older lists disabled packages that have since moved to never-disable.txt
+# (com.amazon.firebat is Prime Video), so the loop above no longer reaches them.
+step "never-disable packages left disabled"
+off=$(dev 'pm list packages -d' | sed 's/^package://' | tr -d '\r')
+for p in $(list_of "$(fos never-disable.txt)" | awk '{print $1}'); do
+  grep -qx "$p" <<<"$off" || continue
+  b=$(acmd pm enable --user 0 "$p" 2>&1 | head -1)
+  printf '  %-46s %s\n' "$p" "${b:-no output}"
 done
 
 step "packages that were only starved"
@@ -66,21 +93,13 @@ step "on-device hooks"
 # Without this the TV keeps sending DNS through a filter the user just tried to
 # undo, and HOME stays hijacked.
 acmd settings delete secure always_on_vpn_app >/dev/null 2>&1
-# Fire OS 6 starts the filter from its own boot receiver, not from always_on_vpn_app, so
-# it would keep filtering after a restore unless it is disabled too.
-if [[ $SDK -lt 28 ]] && present dnsfilter.android; then
-  acmd pm disable-user --user 0 dnsfilter.android >/dev/null 2>&1
-  note "personalDNSfilter disabled (Fire OS 6 would start it again at boot)"
-fi
-acmd settings put secure enabled_accessibility_services "" >/dev/null 2>&1
-acmd settings put secure accessibility_enabled 0 >/dev/null 2>&1
-alarms=$(restore_value global alarm_manager_constants "")
-if [[ -n $alarms && $alarms != null && $alarms != *min_futurity=0* ]]; then
-  acmd settings put global alarm_manager_constants "$alarms" >/dev/null 2>&1
+if [[ $DRY_RUN == 1 ]]; then
+  note "[dry-run] ADB=$ADB ADB_SERIAL=$SERIAL launcher/install.sh --undo"
 else
-  acmd settings delete global alarm_manager_constants >/dev/null 2>&1
+  ADB=$ADB ADB_SERIAL=$SERIAL "$ROOT/launcher/install.sh" --undo >/dev/null ||
+    die "could not hand HOME back to Amazon's launcher; run ./launcher/install.sh --undo"
 fi
-note "always_on_vpn_app cleared, accessibility hook detached, alarm timing restored (apps stay installed)"
+note "always_on_vpn_app cleared, HOME handed back to Amazon's launcher (apps stay installed)"
 
 step "settings"
 while read -r ns key value; do
@@ -90,7 +109,17 @@ while read -r ns key value; do
   printf '  %-46s %s\n' "$key" "$want"
 done < <(list_of "$(fos settings.restore.txt)" | sed 's/ = / /')
 
+# The filter also starts from its own boot receiver, so clearing always_on_vpn_app
+# alone leaves it filtering after the reboot. Disabling it stops the VPN, which can
+# cut a network adb session, so it goes last.
+if present dnsfilter.android; then
+  step "DNS filter"
+  acmd pm disable-user --user 0 dnsfilter.android >/dev/null 2>&1
+  note "personalDNSfilter disabled (it would start again at boot); dnsfilter.sh turns it back on"
+  [[ $DRY_RUN == 1 ]] || { sleep 3; adb_reconnect; }
+fi
+
 [[ $DRY_RUN == 1 ]] && { note "[dry-run] done"; exit 0; }
 reboot_wait
-note "restored. dumbtv home and personalDNSfilter are still installed; remove them in"
-note "Settings > Applications if you want them gone too."
+note "restored. dumbtv home, personalDNSfilter and SmartTube (if you added it) are still"
+note "installed; remove them in Settings > Applications if you want them gone too."

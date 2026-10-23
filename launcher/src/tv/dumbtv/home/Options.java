@@ -78,9 +78,10 @@ public final class Options extends Activity {
         about.setLineSpacing(0, 1.45f);
         about.setPadding(dp(18), dp(30), 0, 0);
         about.setText("Settings: " + cfg.dir + "/" + Config.FILE
-                + "\nBuilt-in backgrounds ship with the app. For your own, put images in "
-                + Config.WALLPAPERS + "/ beside that file and pick Background › Image file. "
-                + "On Fire OS 6/7 you can adb push them; Fire OS 8 blocks adb from that folder."
+                + "\nBuilt-in scenes: Aurora, Dunes at dusk and Moonlit coast. Auto follows the time of day."
+                + "\nCustom wallpaper: put one wallpaper.jpg (or .png/.webp) beside that file, or several in "
+                + Config.WALLPAPERS + "/, then pick Image file or Adaptive wallpaper tint."
+                + "\nOn Fire OS 6/7 you can adb push them; Fire OS 8 blocks adb from that folder."
                 + "\nNo internet permission. No tracking, no ads, no accounts.");
         list.addView(about);
 
@@ -126,9 +127,12 @@ public final class Options extends Activity {
                 value.setText(focused ? "‹  " + text + "  ›" : text);
             }
             value.setTextColor(focused ? Ui.TEXT : Ui.MUTED);
-            boolean image = "image".equals(cfg.get(Config.BACKGROUND));
+            String mode = cfg.get(Config.BACKGROUND);
+            boolean image = "image".equals(mode) || "adaptive-tint".equals(mode);
             boolean scenic = cfg.scene() != null || image;
-            boolean off = (c == Config.DIM && !scenic) || (c == Config.ROTATE && !image);
+            boolean off = (c == Config.DIM && !scenic)
+                    || (c == Config.ROTATE && !image)
+                    || (c == Config.SWITCH && "off".equals(cfg.get(Config.INPUTS)));
             row.setAlpha(off ? 0.35f : 1f);
         };
         row.setOnFocusChangeListener((v, has) -> show.run());
@@ -172,8 +176,8 @@ public final class Options extends Activity {
         int accent = cfg.accent();
         StateListDrawable bg = new StateListDrawable();
         bg.addState(new int[] {android.R.attr.state_focused},
-                Ui.round((accent & 0x00FFFFFF) | 0x2E000000, dp(12), (accent & 0x00FFFFFF) | 0x77000000,
-                        dp(1)));
+                Ui.round((accent & 0x00FFFFFF) | 0x2E000000, dp(12),
+                        (accent & 0x00FFFFFF) | 0x77000000, dp(1)));
         bg.addState(new int[0], Ui.round(0x00000000, dp(12)));
         row.setBackground(bg);
     }

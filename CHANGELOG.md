@@ -3,9 +3,26 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.4 — 2026-10-23
+
+**Merged upstream 1.2 (95 commits) and kept the fork's look.**
+
+- Upstream launcher 1.2 features: grid layout, built-in HDMI input screen
+  (`Input`/`TvView`), adaptive solid/tint backgrounds (`FocusColor`), the new
+  `Open inputs with` option, host-side launcher tests, and the cover-based Fire OS
+  8 HOME fix.
+- The fork's three scenes and visual layer are preserved on top: Aurora, Dunes at
+  dusk and Moonlit coast, `Auto`, layered `Shade` scrim, 64 sp clock, larger cards,
+  softer focus and the grouped Options screen.
+- HOME now tries the existing Home task first with `AppTask.moveToFront` (no extra
+  permission), retries briefly on the first press after an install, and falls back
+  to upstream's cover/alarm path. Tested on AFTKRT / Fire OS 8.1.8.2: first press
+  and repeated/rapid presses all return in about a second.
+- APK: 488,247 bytes with the three scenes; SHA-256 pinned in `launcher/version.env`.
+
 ## 1.3 — 2026-10-22
 
-**Fire OS 8 HOME takeover fixed.**
+**Fire OS 8 HOME takeover fixed (interim; superseded by 1.4's combined path).**
 
 - Android 11 refuses the Guard's alarm-fired activity start from the background
   (`callingUidHasAnyVisibleWindow: false`), which left HOME on Amazon's launcher.
