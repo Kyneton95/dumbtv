@@ -3,6 +3,22 @@
 Changes in this fork relative to upstream dumbtv home. Upstream baseline:
 [dumbtv home 1.1](https://github.com/humblemuzzu/dumbtv).
 
+## 1.14 — 2026-10-29
+
+**Sync with upstream main, verified on Fire OS 8 (AFTKRT).**
+
+- Merged upstream main beyond 1.2: Afterglow tile style, brand colors,
+  memory meter, recent-apps tracking, new device catalog entries (35 valid),
+  blocklist updates and launcher fixes.
+- Full pass verified on an AFTKRT running Fire OS 8.1.8.2: debloat (34 Amazon
+  packages disabled), DNS filter (Amazon telemetry and update hosts blocked,
+  YouTube/Prime Video/Appstore reachable), launcher 1.13 bound as HOME;
+  `verify.sh` exits 0.
+- Fork features retained: four built-in scenes (Daylight, Aurora, Dunes at
+  dusk, Moonlit coast), cinematic look, fast Fire OS 8 HOME takeover path.
+- README and FORK.md updated to reflect the sync; homepage screenshot replaced
+  with a live capture from the test TV.
+
 ## 1.13 — 2026-10-23
 
 **Review pass: rendering, HOME handoff and Options.**
