@@ -4,6 +4,8 @@
 # and a self-test. Usage: ./scripts/dnsfilter.sh [--dry-run] [-y]
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+source "$ROOT/scripts/appdata.sh"
+source "$ROOT/scripts/appui.sh"
 parse_flags "$@"
 need_device
 load_conf
@@ -29,6 +31,7 @@ CONF_OUT=$WORK/dnsfilter.conf
 RAW=$WORK/hagezi.txt
 LIST=$WORK/blocklist.txt
 DIR=/sdcard/Android/data/$PKG/files/PersonalDNSFilter
+MEDIA=/sdcard/Android/media/$PKG
 
 GW=$(gateway)
 [[ -n $GW ]] || die "could not read the default gateway from 'ip route'"
@@ -36,7 +39,23 @@ GW=$(gateway)
 step "plan"
 note "filter         personalDNSfilter, runs as a local VPN on the TV"
 note "gateway        $GW (put inside the tunnel so apps cannot bypass the filter)"
+# Every other DNS server the TV knows goes inside the tunnel too. A router that hands out an
+# IPv6 DNS address (eero does) otherwise lets lookups go around the filter over IPv6.
+# Only Fire OS 6 (Android 7.1) fills in net.dns*; on Fire OS 7 and 8 this finds nothing.
+ROUTES=$GW
+for prop in net.dns1 net.dns2 net.dns3 net.dns4; do
+  ip=$(dev "getprop $prop" 2>/dev/null | tr -d '\r' || true)
+  [[ $ip =~ ^[0-9a-fA-F.:]+$ && $ip == *[.:]* && $ip != 127.* && $ip != ::1 ]] || continue
+  [[ "; $ROUTES;" == *"; $ip;"* ]] || ROUTES="$ROUTES; $ip"
+done
+[[ $ROUTES == "$GW" ]] || note "also routed    ${ROUTES#"$GW"; }"
 note "list           HaGeZi Amazon trackers + data/blocklists/extra-hosts.txt"
+upstream=$(fallback_dns) || exit 1
+if [[ -n $upstream ]]; then
+  note "upstream       $DNS_UPSTREAM (port 53, UDP)"
+else
+  note "upstream       the router"
+fi
 if [[ $PRIME == 1 ]]; then
   note "prime video    kept: its video CDN and push service stay out of the list"
 else
@@ -92,12 +111,17 @@ if [[ $DRY_RUN == 0 ]]; then
   # downloads a blocklist and cannot end up with a half-written one.
   # previousAutoUpdateURL must match the (now empty) update URL: the template ships "<none>",
   # and a mismatch makes the app "update" at start and write an empty list over the pushed one.
+  if [[ -n $upstream ]]; then
+    fb=$upstream
+  else
+    fb="\\#router; [$GW]::53::UDP"
+  fi
   sed -i.dumbtv \
     -e 's|^filterAutoUpdateURL = |#filterAutoUpdateURL = |' \
     -e 's|^previousAutoUpdateURL = .*|previousAutoUpdateURL = |' \
     -e 's|^detectDNS = .*|detectDNS = false|' \
-    -e "s|^fallbackDNS = .*|fallbackDNS = \\#router; [$GW]::53::UDP|" \
-    -e "s|^routeIPs =.*|routeIPs = $GW|" \
+    -e "s|^fallbackDNS = .*|fallbackDNS = $fb|" \
+    -e "s|^routeIPs =.*|routeIPs = $ROUTES|" \
     -e 's|^routeUnderlyingDNS = .*|routeUnderlyingDNS = true|' \
     -e 's|^showInitialInfoPopUp = .*|showInitialInfoPopUp = false|' \
     -e 's|^reloadIntervalDays = .*|reloadIntervalDays = 3650|' \
@@ -127,8 +151,12 @@ if [[ $DRY_RUN == 0 ]]; then
     grep -Eq '^androidAppWhiteList = <none>' "$CONF_OUT" ||
       die "config template changed upstream (androidAppWhiteList did not take)"
   fi
-  grep -Fqx "routeIPs = $GW" "$CONF_OUT" ||
+  grep -Fqx "routeIPs = $ROUTES" "$CONF_OUT" ||
     die "config template changed upstream (routeIPs did not take) — update scripts/dnsfilter.sh"
+  if [[ -n $upstream ]]; then
+    grep -Fqx "fallbackDNS = $fb" "$CONF_OUT" ||
+      die "config template changed upstream (fallbackDNS did not take) — update scripts/dnsfilter.sh"
+  fi
   # Fire OS 6 forgets always_on_vpn_app at boot, so there the app's own boot start is the
   # only thing that brings the filter up. Opt-out for TVs where both starts race (issue #58).
   if [[ $FILTER_AUTOSTART == 0 && $SDK -lt 28 ]]; then
@@ -142,7 +170,117 @@ if [[ $DRY_RUN == 0 ]]; then
   note "patched; no list downloads on the TV"
 fi
 
+# Android 11 hides Android/data from adb, so the config and list cannot be pushed into the
+# app's folder. An adb restore carries them in instead (scripts/appdata.sh): Android clears
+# the app's data and unpacks the files as the app.
+restore_into_app() {
+  local data=$WORK/appdata/PersonalDNSFilter
+  if ! backup_active; then
+    note "this TV's backup service is off, so adb restore cannot carry the config in"
+    return 1
+  fi
+  mkdir -p "$data"
+  cp "$CONF_OUT" "$data/dnsfilter.conf"
+  cp "$LIST" "$data/FILTERHOSTS.TXT"
+  cp "$WORK/dld_cnt.txt" "$data/FILTERHOSTS.TXT.DLD_CNT"
+  : > "$data/IDX_OUTDATED"
+  # Without VERSION.TXT the app takes the files for an upgrade and merges its defaults back
+  # in, its list downloads included.
+  printf '%s' "$APK_VERSION" > "$data/VERSION.TXT"
+  app_data_archive "$WORK/appdata.ab" "$PKG" "$APK_VERSION" "$SDK" \
+    "$(list_of "$DATA/personaldnsfilter-signer.txt")" "$data" PersonalDNSFilter || return 1
+  # With the filter's VPN up, the restore broke off part-way (an I/O error on the restore
+  # stream, or a quiet stop after a few files); with the app stopped first it went through.
+  # It stays stopped until the reboot that ends this script, as on the Fire OS 7 path below.
+  dev "am force-stop $PKG" >/dev/null 2>&1
+  sleep 3
+  adb_reconnect
+  note "the TV asks to confirm a restore of personalDNSfilter's data; this script answers it"
+  restore_app_data "$WORK/appdata.ab"
+}
+
+# Android/media is the one place adb can write that the app can read. The list goes there and
+# the app loads it from a file:// URL.
+push_to_media() {
+  dev "mkdir -p $MEDIA; rm -f $MEDIA/dumbtv-blocklist*.txt" >/dev/null 2>&1
+  # Without these the app's file import writes an empty list and says nothing.
+  dev "pm grant $PKG android.permission.READ_EXTERNAL_STORAGE" >/dev/null 2>&1
+  dev "pm grant $PKG android.permission.WRITE_EXTERNAL_STORAGE" >/dev/null 2>&1
+  "$ADB" -s "$SERIAL" push "$LIST" "$MEDIA/$1" | tail -1
+  [[ $(dev1 "grep -c . $MEDIA/$1") == "$(grep -c . "$LIST")" ]]
+}
+
+# When adb restore is not available: the settings are typed into the app's own config editor
+# (Advanced settings > Edit configuration file). Pressing BACK saves it, merged over the app's
+# defaults with the last copy of a key winning, so only the changed keys are typed, after the
+# text already there. A list file with a new name gives the app a new URL, which it loads
+# when its RESTART is pressed.
+configure_in_app() {
+  local name entries line i nodes lines=()
+  name=dumbtv-blocklist-$(date +%s).txt
+  push_to_media "$name" || { note "could not put the list in $MEDIA"; return 1; }
+  entries=$(grep -c . "$LIST")
+  lines=("detectDNS = false" "fallbackDNS = ${upstream:-[$GW]::53::UDP}" "routeIPs = $ROUTES"
+    "routeUnderlyingDNS = true" "reloadIntervalDays = 3650" "filterHostsFile = FILTERHOSTS.TXT"
+    "filterAutoUpdateURL = file:///storage/emulated/0/Android/media/$PKG/$name"
+    "filterAutoUpdateURL_IDs = dumbtv" "filterAutoUpdateURL_categories = dumbtv"
+    "filterAutoUpdateURL_switchs = true")
+  [[ $FILTER_AUTOSTART == 0 ]] && lines+=("AUTOSTART = false")
+  note "typing the settings into personalDNSfilter's config editor; leave the remote alone (about two minutes)"
+  # Right after a first start the app's screen can stay unreadable to uiautomator ("null
+  # root node") until another window has been in front; HOME and a new start clear it.
+  for i in 1 2 3; do
+    [[ $i -gt 1 ]] && dev input keyevent KEYCODE_HOME >/dev/null && sleep 2
+    dev "am start -n $PKG/.DNSProxyActivity" >/dev/null 2>&1
+    sleep 3
+    nodes=$(ui_nodes) || continue
+    [[ $nodes == *':id/advancedConfigCheck"'* || $nodes == *':id/closeInfoPopupBtn"'* ]] && break
+  done
+  # A fresh install opens the app's info dialog first, and it holds the focus until closed.
+  if [[ -n $(ui_node closeInfoPopupBtn) ]]; then
+    ui_tick disableInfoPopUp
+    ui_press closeInfoPopupBtn
+    sleep 2
+  fi
+  ui_tick advancedConfigCheck && ui_tick manuallyEditConfChk && ui_focus manuallyEditField || {
+    note "could not reach the app's config editor"
+    return 1
+  }
+  # PAGE_DOWN moves the cursor without leaving the field, as DPAD_DOWN does on the last line.
+  dev input keyevent $(printf 'KEYCODE_PAGE_DOWN %.0s' $(seq 1 40)) KEYCODE_MOVE_END KEYCODE_ENTER >/dev/null
+  for line in "${lines[@]}"; do
+    ui_type "$line"
+    dev input keyevent KEYCODE_ENTER >/dev/null
+  done
+  dev input keyevent KEYCODE_BACK >/dev/null
+  sleep 2
+  ui_press startBtn || { note "could not press the app's RESTART"; return 1; }
+  for i in $(seq 1 30); do
+    [[ $(ui_node logOutput) == *"Building index for $entries entries"* ]] && return 0
+    sleep 2
+  done
+  note "the app did not load the list after RESTART"
+  return 1
+}
+
+# The last fallback: the app is pointed at the list from its own screen, by a person.
+manual_steps() {
+  push_to_media dumbtv-blocklist.txt || die "push to $MEDIA failed"
+  acmd settings put secure always_on_vpn_app $PKG >/dev/null
+  step "one manual step ($(fireos_name) hides the app's files from adb)"
+  note "the blocklist is on the TV; point personalDNSfilter at it once:"
+  note "  1. open personalDNSfilter, tick Advanced settings, then tick Configure filter update"
+  note "  2. untick every list in the table"
+  note "  3. in the last row, named <new>, press the edit button at its right end"
+  note "  4. URL: file:///storage/emulated/0/Android/media/$PKG/dumbtv-blocklist.txt (three slashes),"
+  note "     tick Active, press OK"
+  note "  5. reboot the TV, then run ./scripts/verify.sh: the Amazon hosts should answer 127.0.0.1"
+  note "the app draws a phone-sized screen that some remotes cannot move through; docs/TROUBLESHOOTING.md"
+  note "shows how to drive it over adb. DNS_UPSTREAM and the routing settings do not reach the app this way."
+}
+
 step "push"
+restored=0
 if [[ $DRY_RUN == 0 ]]; then
   # The first launch creates DIR and writes a default config; the app is stopped
   # afterwards so it cannot write that default over the config we push next.
@@ -152,26 +290,33 @@ if [[ $DRY_RUN == 0 ]]; then
     dev "test -d $DIR" >/dev/null 2>&1 && break
     sleep 4
   done
+  # Without a download-info file, the first boot after setup sees no
+  # FILTERHOSTS.TXT.DLD_CNT and schedules an immediate "update ASAP" from the
+  # (empty) update-URL list, replacing the pushed blocklist with a stub.
+  # Writing it here marks the pushed list as fresh. Format mirrors
+  # DNSFilterManager.writeDownloadInfoFile: "<entries>\n<millis>\n".
+  # %s000 avoids %N, which macOS date(1) lacks.
+  printf '%s\n%s000\n' "$(grep -c . "$LIST")" "$(date +%s)" > "$WORK/dld_cnt.txt"
   if ! dev "test -d $DIR" >/dev/null 2>&1 && [[ $SDK -ge 30 ]]; then
-    # Android 11 hides Android/data from adb, so neither the config nor the list can be
-    # pushed there. Android/media is still writable, and the app can import a file:// list
-    # from it. Choosing that list is a setting only the app's own screen can change.
-    MEDIA=/sdcard/Android/media/$PKG
-    dev "mkdir -p $MEDIA" >/dev/null 2>&1
-    # Without these the app's file import writes an empty list and says nothing.
-    dev "pm grant $PKG android.permission.READ_EXTERNAL_STORAGE" >/dev/null 2>&1
-    dev "pm grant $PKG android.permission.WRITE_EXTERNAL_STORAGE" >/dev/null 2>&1
-    "$ADB" -s "$SERIAL" push "$LIST" "$MEDIA/dumbtv-blocklist.txt" | tail -1 || die "push to $MEDIA failed"
-    acmd settings put secure always_on_vpn_app $PKG >/dev/null
-    step "one manual step ($(fireos_name) hides the app's files from adb)"
-    note "the blocklist is on the TV; tell the app to use it, with the remote:"
-    note "  1. open personalDNSfilter, then Advanced settings > Configure filter update"
-    note "  2. add an entry: file:///storage/emulated/0/Android/media/$PKG/dumbtv-blocklist.txt"
-    note "  3. untick every other entry, go back, and reboot the TV"
-    note "  4. run ./scripts/verify.sh: the Amazon hosts should answer 127.0.0.1"
-    note "the routing tweaks (detectDNS=false, routeIPs) cannot be applied this way; see docs/TROUBLESHOOTING.md"
-    exit 0
+    if restore_into_app; then
+      restored=1
+      note "config and list are in the app's folder"
+      # The restore cleared the app's data and stopped the app. The VPN consent and the
+      # Doze exemption are kept outside that data; setting them again costs nothing.
+      acmd appops set $PKG ACTIVATE_VPN allow >/dev/null
+      acmd dumpsys deviceidle whitelist +$PKG >/dev/null
+    elif configure_in_app; then
+      restored=1
+      note "the app loaded the list ($(grep -c . "$LIST") entries) from $MEDIA"
+      dev input keyevent KEYCODE_HOME >/dev/null
+    else
+      note "the restore did not go through"
+      manual_steps
+      exit 0
+    fi
   fi
+fi
+if [[ $DRY_RUN == 0 && $restored == 0 ]]; then
   dev "test -d $DIR" >/dev/null 2>&1 || die "the app did not create $DIR — is it installed?"
   dev "am force-stop $PKG" >/dev/null 2>&1
   sleep 2
@@ -180,13 +325,6 @@ if [[ $DRY_RUN == 0 ]]; then
   # the app's rebuild ends by deleting IDX_OUTDATED and throws if it is not there.
   dev "rm -rf $DIR/FILTERHOSTS.TXT.idx; touch $DIR/IDX_OUTDATED" >/dev/null 2>&1
   "$ADB" -s "$SERIAL" push "$LIST" "$DIR/FILTERHOSTS.TXT" | tail -1 || die "push of FILTERHOSTS.TXT failed"
-  # Without a download-info file, the first boot after setup sees no
-  # FILTERHOSTS.TXT.DLD_CNT and schedules an immediate "update ASAP" from the
-  # (empty) update-URL list, replacing the pushed blocklist with a stub.
-  # Writing it here marks the pushed list as fresh. Format mirrors
-  # DNSFilterManager.writeDownloadInfoFile: "<entries>\n<millis>\n".
-  # %s000 avoids %N, which macOS date(1) lacks.
-  printf '%s\n%s000\n' "$(grep -c . "$LIST")" "$(date +%s)" > "$WORK/dld_cnt.txt"
   "$ADB" -s "$SERIAL" push "$WORK/dld_cnt.txt" "$DIR/FILTERHOSTS.TXT.DLD_CNT" | tail -1 \
     || die "push of FILTERHOSTS.TXT.DLD_CNT failed"
 fi
@@ -255,6 +393,9 @@ if [[ $fail == 1 ]]; then
      dev 'ip addr show' | grep -Eq '^[0-9]+: tun[0-9]+:.*UP'; then
     note "the tunnel is up and always-on is set, yet DNS goes around it: if a reboot does not"
     note "fix it, add FILTER_AUTOSTART=0 to dumbtv.conf and run this script again"
+  fi
+  if [[ $restored == 1 ]]; then
+    note "the config went in without adb push; if a reboot does not fix it, see \"Fire OS 8\" in docs/TROUBLESHOOTING.md"
   fi
   exit 1
 fi

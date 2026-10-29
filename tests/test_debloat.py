@@ -30,8 +30,12 @@ STORE_APPS = ["com.netflix.ninja", "com.amazon.firetv.youtube", "org.videolan.vl
 
 
 class DebloatTest(unittest.TestCase):
-    def run_debloat(self, conf="", *flags):
+    AMAZON_DREAM = "com.amazon.ftv.screensaver/.app.services.ScreensaverService"
+
+    def run_debloat(self, conf="", *flags, basic_dream=True):
         packages = {p: {"system": True, "enabled": True} for p in CLEANUP + ALEXA + USER_APPS}
+        if basic_dream:
+            packages["com.android.dreams.basic"] = {"system": True, "enabled": True}
         for p in STORE_APPS:
             packages[p] = {"system": False, "enabled": True}
         packages["com.amazon.tv.launcher"] = {"system": True, "enabled": True}
@@ -39,12 +43,14 @@ class DebloatTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             state = tmp / "state.json"
-            state.write_text(json.dumps({"packages": packages}))
+            state.write_text(json.dumps({"packages": packages, "settings": {
+                "secure/screensaver_components": self.AMAZON_DREAM}}))
             log = tmp / "commands.log"
             log.touch()
             (tmp / "dumbtv.conf").write_text(conf)
             env = dict(os.environ, ADB=str(ROOT / "tests" / "fake_tv.py"), ADB_SERIAL="test-tv",
-                       FAKE_TV_STATE=str(state), FAKE_TV_LOG=str(log), CONF=str(tmp / "dumbtv.conf"))
+                       FAKE_TV_STATE=str(state), FAKE_TV_LOG=str(log), CONF=str(tmp / "dumbtv.conf"),
+                       REPORT=str(tmp / "report"))
             env.pop("REMOVE_EXTRA", None)
             env.pop("KEEP_APPS", None)
             env.pop("ALEXA", None)
@@ -54,10 +60,18 @@ class DebloatTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             commands = log.read_text().splitlines()
+            report = tmp / "report" / "debloat.txt"
+            self.report = report.read_text().splitlines() if report.exists() else None
         disabled = {c.split()[-1] for c in commands if c.startswith("pm disable-user")}
         uninstalled = {c.split()[-1] for c in commands if c.startswith("pm uninstall")}
         settings = [c for c in commands if c.startswith("settings put")]
         return disabled, uninstalled, settings
+
+    def test_the_log_goes_to_the_report_folder_given(self):
+        # A test run must never overwrite the owner's real report/debloat.txt.
+        self.run_debloat()
+        self.assertIsNotNone(self.report, "debloat.txt was not written to REPORT")
+        self.assertTrue(any(line.endswith("\tdisabled") for line in self.report))
 
     def test_default_touches_no_app(self):
         disabled, uninstalled, _ = self.run_debloat()
@@ -90,6 +104,21 @@ class DebloatTest(unittest.TestCase):
     def test_keep_list_wins_over_the_cleanup_list(self):
         disabled, _, _ = self.run_debloat('KEEP_APPS="com.amazon.tv.acr"\n')
         self.assertNotIn("com.amazon.tv.acr", disabled)
+
+    def test_screensaver_left_alone_by_default(self):
+        _, _, settings = self.run_debloat()
+        self.assertFalse([s for s in settings if "screensaver" in s])
+
+    def test_disabled_screensaver_is_replaced_by_androids_own(self):
+        disabled, _, settings = self.run_debloat('REMOVE_EXTRA="com.amazon.ftv.screensaver"\n')
+        self.assertIn("com.amazon.ftv.screensaver", disabled)
+        self.assertIn("settings put secure screensaver_components com.android.dreams.basic/.Colors",
+                      settings)
+
+    def test_no_replacement_screensaver_means_no_change(self):
+        _, _, settings = self.run_debloat('REMOVE_EXTRA="com.amazon.ftv.screensaver"\n',
+                                          basic_dream=False)
+        self.assertFalse([s for s in settings if "screensaver" in s])
 
     def test_dry_run_changes_nothing(self):
         disabled, uninstalled, settings = self.run_debloat("", "--dry-run")

@@ -135,8 +135,9 @@ note "Settings > Player > Video presets > 1080p 60fps vp9 (not av01 — no hardw
 
 step "verify"
 dev "dumpsys package $PKG" | grep -m1 versionName | sed 's/^ */  /'
-if grep -qx "package:$YT" <<<"$(dev "pm list packages -d")"; then note "YouTube: disabled"
-else note "YouTube: not installed"; fi
+if ! present "$YT"; then note "YouTube: not installed"
+elif grep -qx "package:$YT" <<<"$(dev "pm list packages -d" | tr -d '\r')"; then note "YouTube: disabled"
+else note "YouTube: still installed and enabled"; fi
 out=$("$ADB" -s "$SERIAL" shell "monkey -p $PKG -c android.intent.category.LEANBACK_LAUNCHER 1" 2>&1)
 case $out in
   *injected*|*injected:*) note "SmartTube launches" ;;

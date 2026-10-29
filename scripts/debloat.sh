@@ -123,9 +123,25 @@ for p in $(cleanup_list); do
   if [[ -n $uid && $uid -ge 10000 ]]; then
     acmd cmd netpolicy add restrict-background-blacklist "$uid" >/dev/null
   fi
-  printf '  %-46s still running -> ops off, data blocked\n' "$p"
+  printf '  %-46s still running -> ops off, metered data blocked\n' "$p"
   printf '%s\tstarved\n' "$p" >> "$log"
 done
+
+# Android keeps pointing at a screensaver whose package is off, fails to start it,
+# and puts the TV to sleep at the first timeout instead. That happens
+# when the owner names Amazon's screensaver, and on TVs older lists debloated.
+step "screensaver"
+dream=$(dream_package)
+if [[ -n $dream ]] && dev 'pm list packages -d' | tr -d '\r' | grep -qx "package:$dream"; then
+  if present "${AOSP_DREAM%%/*}"; then
+    acmd settings put secure screensaver_components "$AOSP_DREAM" >/dev/null
+    printf '  %-46s %s\n' "$dream is off" "screensaver is now Android's own ($AOSP_DREAM)"
+  else
+    printf '  %-46s %s\n' "$dream is off" "no other screensaver on this TV: the screen sleeps at the timeout"
+  fi
+else
+  printf '  %-46s %s\n' "${dream:-none set}" "unchanged"
+fi
 
 step "privacy settings"
 while read -r ns key value; do
@@ -141,5 +157,5 @@ note "log: ${log#$ROOT/}"
 
 reboot_wait
 [[ ${NO_REBOOT:-0} == 1 ]] && exit 0
-note "home screen now: $(dev 'dumpsys activity activities' | grep -m1 mResumedActivity | sed 's/.*u0 //;s/}.*//')"
+note "home screen now: $(front_activity)"
 note "if that is not a home screen you can use, run ./scripts/restore.sh"

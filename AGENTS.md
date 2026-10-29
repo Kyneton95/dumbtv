@@ -41,8 +41,11 @@ Every step is undone by `./scripts/restore.sh`.
    they say yes, `youtube.sh` disables the stock app; it only deletes it with
    `--remove`, and only when they asked for it gone in those words. Their Google
    account and subscriptions are never touched.
-8. **Never `am force-stop dnsfilter.android`.** It leaves the filter running but
-   filtering nothing until the TV reboots.
+8. **Never `am force-stop dnsfilter.android` yourself.** It leaves the filter running
+   but filtering nothing until the TV reboots. `dnsfilter.sh` may stop it once on
+   purpose, before it replaces the app's files, and then reboots the TV itself, or,
+   when it ends at its manual step, says to reboot. If that run is cut short, reboot
+   the TV or run `dnsfilter.sh` again.
 9. **Never disable `com.amazon.vizzini`.** It keeps running anyway, and on some
    TVs it covers the screen with "Unable to Detect Your Remote".
 10. **One TV at a time.** If `adb devices` lists several, set `ADB_SERIAL`.
@@ -95,7 +98,9 @@ people take them.
 
 `--keep "pkg pkg"` keeps a package that would otherwise be disabled, for an owner
 who wants a specific Amazon feature. Fire OS 6 has one more question
-(`--system-dns`); its default is right for almost everyone.
+(`--system-dns`); its default is right for almost everyone. `--dns-upstream` is
+not one of the questions: leave it unset unless the owner names resolver IPs.
+Empty means the filter forwards unknown names to the router.
 
 Record the answers:
 
@@ -138,7 +143,7 @@ and changes nothing.
 | `already disabled by the system` | the TV had it off already |
 | `absent` | not on this TV; normal, the lists cover many models |
 | `PROTECTED` | Amazon refuses to let it be disabled. Expected; `lockdown.sh` and the filter deal with it |
-| `still running -> ops off, data blocked` | disabled but kept alive by the system, so its background running and data are cut |
+| `still running -> ops off, metered data blocked` | disabled but kept alive by the system, so its background running is cut. Data Saver only covers metered networks; on Wi-Fi and Ethernet the DNS filter blocks its uploads |
 | `uninstalled` | an app the owner named, removed |
 | `SKIP (keep list)` | the owner kept it |
 | `SKIP (never-disable list)` | the TV needs it |
@@ -151,6 +156,7 @@ ok         softwareupdates.amazon.com   blocked
 ok         www.youtube.com              resolves
 ok home bound, front is tv.dumbtv.home/.Home
 packages 51 disabled
+ok settings 13 privacy settings as set
 ok filter 416 entries
 ok vpn dnsfilter.android
 all checks passed
@@ -165,8 +171,10 @@ path. Use the table below; do not disable more packages.
 |---|---|
 | Amazon's home screen is back | `./scripts/launcher.sh -y` |
 | Amazon's home shows for ~5 s before dumbtv home | `./scripts/launcher.sh -y` (an update reset the alarm setting) |
+| `verify.sh` warns `enabled again` or `back to Amazon's values` | an update undid part of the cleanup: `./scripts/debloat.sh -y` |
 | Nothing is blocked, but the filter is running | reboot the TV |
 | "Unable to Detect Your Remote" over everything | `adb shell pm enable --user 0 com.amazon.vizzini`, then reboot |
+| The TV sleeps while something plays on HDMI | `./scripts/launcher.sh -y` (dumbtv home 1.3 and later keep the panel awake) |
 | An app stopped working | find the host it needs and remove it from `data/blocklists/extra-hosts.txt`, then `./scripts/dnsfilter.sh -y` |
 | They want an app back | `adb shell pm enable --user 0 <package>`, or the Appstore if it was uninstalled |
 | Start over | `./scripts/restore.sh -y` |

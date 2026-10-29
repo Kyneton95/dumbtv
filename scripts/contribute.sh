@@ -14,9 +14,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 ID=""; PLATFORM=""; STATUS=""; USE_DEVICE=1
 DEV_MODE=""; IP_LOC=""; MODELS=""; NOTES=""; BRAND=""; MODEL=""; GITHUB=""
-ANDROID="unknown"; SDK="unknown"; BUILD="unknown"; KERNEL="unknown"
+ANDROID="unknown"; SDK="unknown"; BUILD="unknown"; KERNEL="unknown"; DEVICE_SERIAL=""
 PROMPTS=(); QUIRKS=()
 while [[ $# -gt 0 ]]; do
+  case $1 in
+    -y|--yes|--dry-run|--no-device) ;;
+    --*) [[ $# -ge 2 ]] || die "$1 takes a value" ;;
+  esac
   case $1 in
     -y|--yes) ASSUME_YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -47,12 +51,26 @@ ask() { # prompt, default -> stdout
   printf '%s' "${a:-$d}"
 }
 
-# Anything that identifies a household never goes in the catalog.
+# Anything that identifies a household never goes in the catalog: IP and MAC
+# addresses, email addresses, and this TV's serial number.
+identifies() {
+  local ip first
+  # A dotted quad that starts with one digit is a Fire OS version (7.6.9.7), and 127.x
+  # and 0.0.0.0 are what a blocked host answers. Any other one is an address.
+  for ip in $(printf '%s' "$1" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}'); do
+    first=$((10#${ip%%.*}))
+    [[ $first -ge 10 && $first != 127 ]] && return 0
+  done
+  printf '%s' "$1" | grep -Eq '([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}|[^[:space:]@]+@[^[:space:]@]+\.[A-Za-z]{2,}' ||
+    [[ ${#DEVICE_SERIAL} -ge 6 && $1 == *"$DEVICE_SERIAL"* ]]
+}
 clean() {
   local v=$1
   while :; do
-    if printf '%s' "$v" | grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'; then
-      printf 'That looks like an IP or MAC address. Remove it: ' >&2
+    if identifies "$v"; then
+      # Unattended there is nobody to ask, and the value must not be written.
+      [[ $ASSUME_YES == 1 ]] && die "a value looks like an IP, MAC or email address or the TV's serial number: '$v'"
+      printf 'That looks like an IP, MAC or email address or the serial number. Remove it: ' >&2
       read -r v
       continue
     fi
@@ -73,6 +91,7 @@ if [[ $USE_DEVICE == 1 ]]; then
   SDK=$(dev1 getprop ro.build.version.sdk)
   BUILD=$(dev1 getprop ro.build.display.id)
   KERNEL=$(dev1 uname -r)
+  DEVICE_SERIAL=$(dev1 getprop ro.serialno)
   note "brand    $BRAND"
   note "model    $MODEL"
   note "android  $ANDROID (sdk $SDK)"
@@ -127,6 +146,18 @@ fi
 [[ -z $NOTES ]] && NOTES=$(clean "$(ask 'One-line summary of the result:' '')")
 [[ -z $GITHUB ]] && GITHUB=$(ask "Your GitHub username, for the credit (Enter to stay anonymous):" "")
 GITHUB=${GITHUB#@}
+# Values given as flags were never asked for, so check everything once more. clean runs
+# in a subshell here, so a refusal has to stop this shell too.
+for v in BRAND MODEL DEV_MODE IP_LOC MODELS NOTES; do
+  cleaned=$(clean "${!v}") || exit 1
+  printf -v "$v" '%s' "$cleaned"
+done
+if [[ ${#PROMPTS[@]} -gt 0 ]]; then
+  for i in "${!PROMPTS[@]}"; do PROMPTS[$i]=$(clean "${PROMPTS[$i]}") || exit 1; done
+fi
+if [[ ${#QUIRKS[@]} -gt 0 ]]; then
+  for i in "${!QUIRKS[@]}"; do QUIRKS[$i]=$(clean "${QUIRKS[$i]}") || exit 1; done
+fi
 [[ -z $GITHUB || $GITHUB =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] || die "'$GITHUB' is not a GitHub username"
 
 case $PLATFORM in

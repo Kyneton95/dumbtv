@@ -6,10 +6,13 @@ import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.PixelFormat;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -26,8 +29,9 @@ import android.view.accessibility.AccessibilityEvent;
  *
  * A plain startActivity right after a HOME press is held back by Android's five-second
  * app-switch delay. An alarm-fired PendingIntent is sent by system_server, which is exempt,
- * so {@link #home} launches through an alarm. That alarm only fires at once when the global
- * {@code alarm_manager_constants} has {@code min_futurity=0}; install.sh sets it.
+ * so {@link #home} launches through an alarm. That alarm only fires at once with
+ * {@code min_futurity=0}, which install.sh sets: in the global {@code alarm_manager_constants}
+ * up to Android 11, in DeviceConfig {@code alarm_manager} from Android 12.
  *
  * Amazon's home is covered with a short-lived overlay until ours has drawn. The cover window is
  * added only for the handoff, so it does not exist over apps.
@@ -36,6 +40,12 @@ import android.view.accessibility.AccessibilityEvent;
  * through system_server by an alarm ("Background activity start ... callingUidHasAnyVisibleWindow:
  * false"). The cover is such a window, so the launch waits until the cover has reached the
  * window manager: {@link #launchWhenCovered} fires it from the cover's first draw pass.
+ * Android 14 counts the cover only once the window manager has shown its surface, a frame or
+ * more after that draw, so there the alarm is set {@link #SHOWN_DELAY_MS} later (issue #57).
+ *
+ * Waking from standby resumes whatever was on screen without a new window event. If the last
+ * window was Amazon's home screen, ours is brought up at once. Amazon's other launcher screens,
+ * such as its settings grid, are left alone, as is a wake before any window was seen.
  */
 public final class Guard extends AccessibilityService {
     private static final String TAG = "dumbtv";
@@ -47,6 +57,7 @@ public final class Guard extends AccessibilityService {
     private static final long RETRY_MS = 250;
     private static final long RETRY_MAX_MS = 750;
     private static final long ARRIVAL_CHECK_MS = 1500;
+    private static final long SHOWN_DELAY_MS = Build.VERSION.SDK_INT >= 34 ? 300 : 0;
     private static final int TASK_NONE = 0;
     private static final int TASK_HOME = 1;
     private static final int TASK_OTHER = 2;
@@ -68,6 +79,13 @@ public final class Guard extends AccessibilityService {
     private long lastLaunch;
     private long lastMove;
     private long retryUntil;
+    private boolean onAmazonHome;
+    private final BroadcastReceiver screenOn = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            if (!paused && onAmazonHome) launchWhenCovered(handoff);
+        }
+    };
 
     /** Lets Amazon's home stay on screen until the user leaves it. */
     static void pause() {
@@ -76,8 +94,13 @@ public final class Guard extends AccessibilityService {
     }
 
     static void home(Context c) {
+        home(c, 0);
+    }
+
+    private static void home(Context c, long delayMs) {
         AlarmManager alarms = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
-        alarms.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), launch(c));
+        alarms.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + delayMs,
+                launch(c));
     }
 
     /** Drops a queued launch, so it cannot pull the user back after they opened an app. */
@@ -123,6 +146,7 @@ public final class Guard extends AccessibilityService {
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.OPAQUE);
         coverParams.windowAnimations = 0;
+        registerReceiver(screenOn, new IntentFilter(Intent.ACTION_SCREEN_ON));
     }
 
     @Override
@@ -130,6 +154,10 @@ public final class Guard extends AccessibilityService {
         handler.removeCallbacks(uncover);
         removePending();
         removeCover();
+        try {
+            unregisterReceiver(screenOn);
+        } catch (IllegalArgumentException ignored) {
+        }
         if (running == this) running = null;
         super.onDestroy();
     }
@@ -150,6 +178,7 @@ public final class Guard extends AccessibilityService {
         if (pkg == null) return;
         if (!AMAZON.contentEquals(pkg)) {
             if ("com.android.systemui".contentEquals(pkg) || "android".contentEquals(pkg)) return;
+            onAmazonHome = false;
             paused = false;
             handler.removeCallbacks(retry);
             // A genuine app event resets both debounces, so a quick app -> HOME press is
@@ -165,7 +194,8 @@ public final class Guard extends AccessibilityService {
             }
             return;
         }
-        if (paused || cls == null || !AMAZON_HOME.contentEquals(cls)) return;
+        onAmazonHome = cls != null && AMAZON_HOME.contentEquals(cls);
+        if (paused || !onAmazonHome) return;
         long now = SystemClock.uptimeMillis();
         if (acknowledged && now - lastMove < 1500) return;
         if (now - lastLaunch < REPEAT_MS) return;
@@ -269,7 +299,7 @@ public final class Guard extends AccessibilityService {
                 observer.removeOnPreDrawListener(this);
                 if (token != handoff) return true;
                 if (pendingLaunch != null) handler.removeCallbacks(pendingLaunch);
-                home(Guard.this);
+                home(Guard.this, SHOWN_DELAY_MS);
                 return true;
             }
         });

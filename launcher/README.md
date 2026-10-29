@@ -61,6 +61,7 @@ Undo: `./launcher/install.sh --undo` gives HOME back to Amazon's launcher.
 |---|---|
 | OK | open the app, or switch to the input |
 | Hold OK, or ☰ Menu | Move, Rename, Hide, App info |
+| With Child lock on: hold ☰ Menu for 3 s | Options |
 | Move mode | ◀ ▶ moves the tile, ▲ ▼ moves it a line in the grid, any other key drops it |
 | Up from the top row | Options and Settings |
 | Back on the home screen | jump to the first tile |
@@ -75,8 +76,10 @@ Undo: `./launcher/install.sh --undo` gives HOME back to Amazon's launcher.
 | Accent | white, blue, cyan, green, amber, red, pink, violet |
 | Tiles | small, medium, large |
 | Layout | rows, or a grid that wraps to as many columns as fit |
+| App order | your order, or recently used: the apps row re-sorts on each return home, newest first. It counts apps opened from dumbtv home, plus apps opened any other way (voice, another app) on Fire OS 6, where the launcher already has usage access. Apps never opened keep your order after the rest |
 | App names | on focus, always, never |
 | Clock | system, 24-hour, 12-hour |
+| Memory meter | hidden, shown: free memory under the date, with a bar of what is in use; amber, with "running low", when Android reports low memory or under 15% is free. It only shows the numbers: it closes and frees nothing, and needs no permission |
 | Inputs row | shown, hidden |
 | Open inputs with | Automatic, the TV's app, dumbtv home (see below) |
 | Background | auto, daylight, aurora, dunes, coast, black, graphite, midnight, image, adaptive, adaptive tint |
@@ -85,6 +88,15 @@ Undo: `./launcher/install.sh --undo` gives HOME back to Amazon's launcher.
 Below them: Next background, which apps and inputs appear on the home screen, a
 reset for order, names and hidden tiles, and **Open Amazon's home screen**. Apps
 without a TV banner, like the Appstore, start hidden; tick them to add them.
+
+**Afterglow** changes app tiles only, in both rows and grid layouts. Select it in
+Options or set `tile_style=afterglow` in `home.conf`. The name remains visible inside
+each tile regardless of the App names setting; input tiles are unchanged.
+Known apps use locally defined colors; other apps use the selected accent.
+Corner icons come from installed apps, so no brand-logo files or downloads are
+needed. Missing icons still leave the name visible. Switching back to Original
+restores the normal banners and App names behavior. Background and layout remain
+separate choices.
 
 | Grid layout | Adaptive background | Adaptive tint |
 |---|---|---|
@@ -104,6 +116,23 @@ without a TV banner, like the Appstore, start hidden; tick them to add them.
   is connected. Back returns to the home screen, and HOME releases the input at
   once. Nothing new is requested to do this.
 
+## Child lock
+
+For a TV children use. **Options › Child lock › On** hides the Options and Settings
+buttons and turns off Hold OK and ☰ Menu on tiles, so nobody can move, rename or hide
+a tile, or reach App info, from the home screen. Apps and inputs open as usual.
+
+To change something, **hold ☰ Menu for 3 seconds** on the home screen: Options opens,
+and Child lock › Off brings everything back. A short press does nothing. Over adb,
+`lock=off` in `home.conf` does the same.
+
+It keeps small hands out of dumbtv home; it is not a PIN, and it cannot lock what
+Fire OS owns. Holding HOME still opens Fire OS's own quick menu (on a Fire TV Edition
+TV: Inputs, Apps, Picture, Sound, Sleep Timer), and a remote's app buttons, or its
+Settings button where it has one, still work. A PIN on dumbtv's buttons would leave
+those doors open just the same. Fire OS has its own Parental Controls
+under Settings › Preferences, which use your Amazon PIN; dumbtv leaves them alone.
+
 ## The settings file
 
 Everything lives in one text file on the TV:
@@ -119,10 +148,14 @@ accent=blue
 tiles=medium
 # rows grid
 layout=rows
+# custom recent (recent = newest first; the history stays in the app's private storage)
+order=custom
 # focus always never
 labels=focus
 # auto 24h 12h
 clock=auto
+# off on
+memory=off
 # on off
 inputs=on
 # auto tv home
@@ -133,6 +166,8 @@ background=black
 dim=40
 # off visit hourly daily daytime (visit = every return to the home screen)
 rotate=off
+# off on
+lock=off
 apps.order=com.amazon.firetv.youtube,org.videolan.vlc
 apps.hide=org.videolan.vlc
 apps.show=com.amazon.venezia
@@ -157,6 +192,29 @@ adb shell mkdir -p /sdcard/Android/data/tv.dumbtv.home/files/wallpapers
 adb push *.jpg /sdcard/Android/data/tv.dumbtv.home/files/wallpapers/
 ```
 
+### Fire OS 8: where adb can write
+
+On Fire OS 8 (Android 11) `/sdcard/Android/data/<app>` is closed to `adb`: listing,
+reading and pushing all fail with `Permission denied`, so none of the commands above
+work there. The launcher also looks in its own media folder, which `adb` can still
+write:
+
+```
+/sdcard/Android/media/tv.dumbtv.home/home.conf
+/sdcard/Android/media/tv.dumbtv.home/wallpapers/
+```
+
+```sh
+adb shell mkdir -p /sdcard/Android/media/tv.dumbtv.home/wallpapers
+adb push *.jpg /sdcard/Android/media/tv.dumbtv.home/wallpapers/
+adb push home.conf /sdcard/Android/media/tv.dumbtv.home/home.conf
+```
+
+Wallpapers are read from both folders, in name order. A settings file pushed there
+is applied once, the next time the home screen comes back, and wins over what the TV
+has; what was applied is remembered, so the same push is not applied twice and a
+later change in Options is not overwritten by it.
+
 `rotate=daytime` matches wallpapers to the time of day by name: `morning` or `day`
 (06:00 to 13:00), `afternoon` or `evening` (13:00 to 20:00), `night` (the rest), as
 in `morning-coast.jpg`.
@@ -177,8 +235,9 @@ protected package. Measured on a Fire OS 7 television:
 2. **Android delays app launches for 5 s after HOME** (`APP_SWITCH_DELAY_TIME`),
    which is why other launchers flash Amazon's home. A launch fired by
    AlarmManager comes from `system_server` and is exempt.
-   `install.sh` sets `settings global alarm_manager_constants min_futurity=0` so
-   the alarm fires at once; `--undo` removes it.
+   `install.sh` sets `min_futurity=0` so the alarm fires at once; `--undo` removes
+   it. Up to Android 11 that is `settings global alarm_manager_constants`; Android
+   12 and later ignore it and read `device_config` namespace `alarm_manager`.
 3. **Amazon's home is covered before it draws.** `Guard` keeps an overlay ready,
    with no surface while idle so it costs nothing during video, and removes it once
    dumbtv home is on screen.
@@ -253,12 +312,14 @@ Delete both to stop.
 | `src/.../Ui.java` | shared colours, text and sizes |
 | `src/.../Guard.java` | the Fire OS 7 and 8 HOME takeover |
 | `src/.../Keeper.java` | the Fire OS 6 HOME takeover |
+| `src/.../Recent.java` | when each app was last opened, for App order › Recently used |
 | `src/.../BootReceiver.java` | restarts the Keeper after a boot or an update |
 | `build.sh` | aapt2, javac, d8, zipalign, apksigner |
 | `install.sh` | download and checksum (or `--build`), install, HOME hook, `--undo` |
 | `version.env` | the version and the release's SHA-256, read by the three scripts |
 | `release-check.sh` | checks that the version, the built APK and the GitHub release agree |
 | `tests/FocusColorTest.java` | host-side test for `FocusColor`, run by CI |
+| `tests/RecentTest.java` | host-side test for the Recently used order, run by CI |
 
 ## Releasing
 

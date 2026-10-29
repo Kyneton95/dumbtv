@@ -103,3 +103,30 @@ com.onn.updatenotification                   # onn/Walmart update nagger
 # never-disable.txt; see the catalog entry before copying this)
 # com.google.android.apps.tv.launcherx
 # com.google.android.tungsten.setupwraith
+
+# --- OnePlus TV Y Series (Skyworth), Android 11, build RTO9.231122.002 ---
+# Verified by hand on that one TV on 2026-10-25: each was disabled with
+# pm disable-user and the TV kept working across reboots. Commented out on
+# purpose: one household's choices on one build. See
+# catalog/devices/androidtv-oneplus-y-series.yaml.
+#
+# telemetry and attribution
+# com.google.android.feedback
+# com.google.android.partnersetup
+#
+# promo surfaces: sponsored home rows, OEM promo tiles, screensaver
+# com.google.android.tvrecommendations
+# com.google.android.leanbacklauncher.partnercustomizer
+# com.google.android.backdrop
+#
+# Skyworth store demo mode and e-manual
+# com.smartdevice.common.demonow
+# fusion.android.tv.demo
+# com.Smartdevice.emanual
+#
+# voice assistant (removes voice search and the remote's mic button)
+# com.google.android.katniss
+#
+# disabled so dumbtv home answers HOME (in never-disable.txt; see the
+# catalog entry before copying this)
+# com.google.android.tvlauncher

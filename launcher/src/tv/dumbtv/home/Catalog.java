@@ -50,11 +50,11 @@ final class Catalog {
         }
     }
 
-    /** Loads a banner, or an icon when the app ships no banner. Slow: call off the UI thread. */
-    static void art(PackageManager pm, Item it) {
+    /** Loads a banner, plus an icon for Afterglow or when there is no banner. Slow: off the UI thread. */
+    static void art(PackageManager pm, Item it, boolean cornerIcon) {
         if (it.info == null) return;
         it.banner = it.info.loadBanner(pm);
-        if (it.banner == null) it.icon = it.info.loadIcon(pm);
+        if (it.banner == null || cornerIcon) it.icon = it.info.loadIcon(pm);
     }
 
     /**
@@ -107,12 +107,19 @@ final class Catalog {
 
     /** The shown items, in the user's order; anything never moved keeps catalog order. */
     static List<Item> visible(Config cfg, String kind, List<Item> all) {
+        return visible(cfg, kind, all, null);
+    }
+
+    /** As above, then newest first by {@code recent} (package to last-used time) when it is set. */
+    static List<Item> visible(Config cfg, String kind, List<Item> all, Map<String, Long> recent) {
         List<String> order = cfg.list(kind + ".order");
         List<Item> out = new ArrayList<>();
         for (Item it : all) {
             if (shown(cfg, kind, it)) out.add(it);
         }
         Collections.sort(out, (a, b) -> Integer.compare(rank(order, a.id), rank(order, b.id)));
+        // The sort is stable, so apps with no record keep the user's order after the rest.
+        if (recent != null) Collections.sort(out, (a, b) -> Recent.compare(recent, a.id, b.id));
         return out;
     }
 

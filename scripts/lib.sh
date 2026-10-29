@@ -33,11 +33,13 @@ load_conf() {
   DNSFILTER=${DNSFILTER:-1}
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
+  DNS_UPSTREAM=${DNS_UPSTREAM:-}
   [[ -f $CONF ]] && source "$CONF"
   KEEP_APPS=${KEEP_APPS:-}; REMOVE_EXTRA=${REMOVE_EXTRA:-}
   PRIME=${PRIME:-1}; ALEXA=${ALEXA:-1}; LAUNCHER=${LAUNCHER:-1}; DNSFILTER=${DNSFILTER:-1}
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
+  DNS_UPSTREAM=${DNS_UPSTREAM:-}
 }
 
 # What debloat.sh disables: the ads and tracking list, plus Alexa only with ALEXA=0.
@@ -93,13 +95,18 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 dev()  { "$ADB" -s "$SERIAL" shell "$@" 2>&1 </dev/null; }
 dev1() { dev "$@" | head -1 | tr -d '\r'; }
 
-# A dropped connection must not look like "package absent".
+# A dropped connection must not look like "package absent". adb's exit status cannot tell
+# them apart (pm path exits 1 for a missing package too), so on any failure the connection
+# itself is asked; return 2 means the TV is gone. Callers check it in the main shell: a die
+# inside $(...) or a pipeline would only end that subshell.
 dev_ok() {
-  local out
-  out=$(dev "$@") || return 1
-  printf '%s\n' "$out" | grep -qiE "^error: (device|closed|no devices)|device '[^']*' not found" &&
-    die "device $SERIAL stopped responding — reconnect and re-run"
+  local out rc=0
+  out=$(dev "$@") || rc=$?
+  if [[ $rc != 0 ]] || printf '%s\n' "$out" | grep -qiE "^error: (device|closed|no devices)|device '[^']*' not found"; then
+    [[ $("$ADB" -s "$SERIAL" get-state 2>/dev/null) == device ]] || return 2
+  fi
   printf '%s\n' "$out"
+  return $rc
 }
 
 # Device command that honours --dry-run. The dry-run line goes to stderr so a
@@ -160,6 +167,36 @@ fireos_name() {
   else echo "Fire OS 5 or older (unsupported)"; fi
 }
 
+# What personalDNSfilter asks for a name that is not on the local list.
+# DNS_UPSTREAM is a space-separated list of resolver IPs. Empty keeps the router,
+# which is the default: a second blocklist at the resolver also sinks hosts the
+# local list deliberately left alone. Port 53 over UDP only. personalDNSfilter drops
+# an entry it cannot parse without a word, and with no resolver left the TV resolves
+# nothing, so anything that is not a usable address stops here.
+fallback_dns() {
+  local ip o item out=""
+  local v4='^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$'
+  local h='[0-9A-Fa-f]{1,4}'
+  local v6full="^($h:){7}$h\$" v6short="^($h(:$h)*)?::($h(:$h)*)?\$"
+  for ip in ${DNS_UPSTREAM:-}; do
+    if [[ $ip =~ $v4 ]]; then
+      for o in "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"; do
+        [[ $((10#$o)) -le 255 && ( $o == 0 || $o != 0* ) ]] ||
+          die "DNS_UPSTREAM entry '$ip' is not an IP address"
+      done
+      [[ $ip == 0.0.0.0 ]] && die "DNS_UPSTREAM entry '$ip' is not a resolver"
+    elif [[ $ip =~ $v6full || $ip =~ $v6short ]]; then
+      [[ $ip == :: ]] && die "DNS_UPSTREAM entry '$ip' is not a resolver"
+    else
+      die "DNS_UPSTREAM entry '$ip' is not an IP address"
+    fi
+    item="[$ip]::53::UDP"
+    if [[ -z $out ]]; then out=$item; else out="$out; $item"; fi
+  done
+  [[ -n $out ]] && printf '%s\n' "$out"
+  return 0
+}
+
 # The package lists and app-op calls are written for Fire OS 6 and later.
 need_supported_fireos() {
   is_fireos || die "this is for Amazon Fire OS; see docs/OTHER-TVS.md"
@@ -191,6 +228,28 @@ running_names() {
   fi
 }
 
+# Android's own screensaver, on Fire OS too. Used when the configured one is disabled.
+AOSP_DREAM=com.android.dreams.basic/.Colors
+
+# Package of the screensaver the TV is set to, or nothing.
+dream_package() {
+  local d
+  d=$(dev1 settings get secure screensaver_components)
+  d=${d%%,*}
+  case $d in ''|null) ;; *) printf '%s\n' "${d%%/*}" ;; esac
+}
+
+# The activity in front, as package/.Class. Android 9, 11 and 14 print a top-level
+# "ResumedActivity:" after the task list; Android 7.1 has only the per-task
+# "mResumedActivity:" and 13 only "topResumedActivity=" (issue #57).
+front_activity() {
+  local dump line
+  dump=$(dev 'dumpsys activity activities')
+  line=$(printf '%s\n' "$dump" | grep -m1 -E '^ *ResumedActivity: ActivityRecord')
+  [[ -n $line ]] || line=$(printf '%s\n' "$dump" | grep -m1 -E '(topResumedActivity=|mResumedActivity: )ActivityRecord')
+  printf '%s\n' "$line" | sed -nE 's/.*ActivityRecord\{[^ ]+ u[0-9]+ ([^ }]+).*/\1/p'
+}
+
 is_fireos()  { case $(dev1 getprop ro.product.manufacturer) in Amazon*) return 0 ;; *) return 1 ;; esac; }
 gateway() {
   local gw
@@ -207,9 +266,19 @@ gateway() {
   printf '%s' "$gw"
 }
 uid_of()     { dev "dumpsys package $1" | sed -n 's/.*userId=\([0-9]*\).*/\1/p' | head -1; }
-present()    { dev_ok "pm path $1" | grep -q '^package:'; }
+present() {
+  local out rc=0
+  out=$(dev_ok "pm path $1") || rc=$?
+  [[ $rc == 2 ]] && die "device $SERIAL stopped responding — reconnect and re-run"
+  grep -q '^package:' <<<"$out"
+}
 # Shipped with the TV, as opposed to installed from a store.
-is_system()  { dev_ok "pm list packages -s" | tr -d '\r' | grep -qx "package:$1"; }
+is_system() {
+  local out rc=0
+  out=$(dev_ok "pm list packages -s") || rc=$?
+  [[ $rc == 2 ]] && die "device $SERIAL stopped responding — reconnect and re-run"
+  tr -d '\r' <<<"$out" | grep -qx "package:$1"
+}
 
 reboot_wait() {
   if [[ ${NO_REBOOT:-0} == 1 ]]; then
@@ -247,7 +316,19 @@ boot_id() { dev1 cat /proc/sys/kernel/random/boot_id; }
 # enabled or disabled in the last few seconds comes back as it was. `svc power reboot`
 # shuts down properly. It is killed part-way through the shutdown, so chaining a
 # fallback after it with || would cut that shutdown short.
-ask_reboot() { dev svc power reboot >/dev/null 2>&1 || true; }
+# Fire OS 7.7 refuses it to the shell ("Neither user 2000 nor current process has
+# android.permission.REBOOT", in logcat only) and the TV stays up. A shutdown that
+# started sets sys.shutdown.requested, so a TV still answering without it refused.
+# Package state is written about 10 s after a change; a plain reboot after that wait
+# keeps every change.
+ask_reboot() {
+  dev svc power reboot >/dev/null 2>&1 || true
+  sleep 3
+  if [[ $(dev1 echo ok) == ok && -z $(dev1 getprop sys.shutdown.requested) ]]; then
+    sleep "${PM_WRITE_SECONDS:-12}"
+    dev reboot >/dev/null 2>&1 || true
+  fi
+}
 
 # A network adb session can drop when the TV's network changes under it (an app that
 # holds the VPN being replaced). Brings it back, or stops the run.
