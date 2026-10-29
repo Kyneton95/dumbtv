@@ -15,9 +15,10 @@ Fire OS.
 
 ## What is different
 
-- **Upstream 1.2 included.** The launcher now carries upstream's grid layout,
-  built-in HDMI input screen, adaptive backgrounds and cover-based Fire OS 8 HOME
-  fix, plus all 95 upstream commits.
+- **Upstream synced.** The launcher now carries upstream's grid layout, built-in
+  HDMI input screen, adaptive backgrounds, cover-based Fire OS 8 HOME fix, Afterglow
+  tile style, brand colors, memory meter, and recent-apps tracking — the full
+  upstream main as of this sync, not just the 1.2 release.
 - **A new look.** Full-bleed ambient scenes, a layered scrim, a 64 sp light clock,
   larger 16:9 cards, a softer multi-cue focus state, and a redesigned Options
   screen.
@@ -95,15 +96,17 @@ On this fork the **launcher side is tested on an AFTKRT running Fire OS
 - rows and grid, all four scenes, the Options screen and app-row changes were
   exercised.
 
-So the launcher/HOME problem is solved on this device. The upstream
-debloat/DNS-filter verification status is unchanged — this fork has not re-run or
-changed that part.
+The full pass — debloat, DNS filter, launcher — was also run and `verify.sh`
+exited 0 on this device: Amazon telemetry and update hosts are blocked, YouTube,
+Prime Video and the Appstore remain reachable, and 34 Amazon packages are
+disabled with 13 privacy settings applied.
 
 ## Tested on
 
 - Amazon AFTKRT (Fire TV Stick 4K Max), Fire OS 8.1.8.2 (Android 11, SDK 30):
-  look, scenes, HOME takeover, rapid HOME presses. See the AFTKRT section above
-  for what upstream's "partial" status does and does not mean.
+  look, scenes, HOME takeover, rapid HOME presses, full debloat + DNS filter pass
+  with `verify.sh` exiting 0. See the AFTKRT section above for what upstream's
+  "partial" status does and does not mean.
 - The upstream project's Fire OS 6/7 paths are unchanged.
 
 ## Upstream, license and versioning
