@@ -65,7 +65,7 @@ as documentation photos.
 
 ## Install
 
-The 1.13 release is published from this fork, and `install.sh` downloads it from
+The 1.14 release is published from this fork, and `install.sh` downloads it from
 this repository, verifies the pinned SHA-256, installs it and takes over HOME.
 
 ```sh
@@ -115,4 +115,4 @@ disabled with 13 privacy settings applied.
 - Not affiliated with or endorsed by upstream.
 - License: MIT (see [LICENSE](LICENSE)); the four scenes are original artwork
   generated for this fork.
-- Version: 1.13. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).
+- Version: 1.14. See `launcher/version.env`; changes are in [CHANGELOG.md](CHANGELOG.md).

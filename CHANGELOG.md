@@ -18,6 +18,7 @@ Changes in this fork relative to upstream dumbtv home. Upstream baseline:
   dusk, Moonlit coast), cinematic look, fast Fire OS 8 HOME takeover path.
 - README and FORK.md updated to reflect the sync; homepage screenshot replaced
   with a live capture from the test TV.
+- APK: 717,696 bytes.
 
 ## 1.13 — 2026-10-23
 
